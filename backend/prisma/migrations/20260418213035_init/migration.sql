@@ -1,0 +1,69 @@
+-- CreateTable
+CREATE TABLE "USUARIOS" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "nome" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "username" TEXT NOT NULL,
+    "senha_hash" TEXT NOT NULL,
+    "perfil" TEXT NOT NULL DEFAULT 'COMUM',
+    "status" TEXT NOT NULL DEFAULT 'ATIVO',
+    "criado_em" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- CreateTable
+CREATE TABLE "ATIVOS" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "nome" TEXT NOT NULL,
+    "tipo" TEXT NOT NULL,
+    "localizacao" TEXT NOT NULL,
+    "data_aquisicao" DATETIME,
+    "status" TEXT NOT NULL DEFAULT 'ATIVO',
+    "criado_em" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- CreateTable
+CREATE TABLE "CHAMADOS" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "titulo" TEXT NOT NULL,
+    "descricao" TEXT NOT NULL,
+    "prioridade" TEXT NOT NULL DEFAULT 'MEDIA',
+    "status" TEXT NOT NULL DEFAULT 'ABERTO',
+    "criado_em" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "atualizado_em" DATETIME NOT NULL,
+    "id_solicitante" INTEGER NOT NULL,
+    "id_ativo" INTEGER,
+    "id_tecnico" INTEGER,
+    CONSTRAINT "CHAMADOS_id_solicitante_fkey" FOREIGN KEY ("id_solicitante") REFERENCES "USUARIOS" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "CHAMADOS_id_ativo_fkey" FOREIGN KEY ("id_ativo") REFERENCES "ATIVOS" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT "CHAMADOS_id_tecnico_fkey" FOREIGN KEY ("id_tecnico") REFERENCES "USUARIOS" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "HISTORICO_CHAMADOS" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "comentario" TEXT NOT NULL,
+    "status_novo" TEXT,
+    "criado_em" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "id_chamado" INTEGER NOT NULL,
+    "id_usuario" INTEGER NOT NULL,
+    CONSTRAINT "HISTORICO_CHAMADOS_id_chamado_fkey" FOREIGN KEY ("id_chamado") REFERENCES "CHAMADOS" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "HISTORICO_CHAMADOS_id_usuario_fkey" FOREIGN KEY ("id_usuario") REFERENCES "USUARIOS" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "DOCUMENTACOES" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "titulo" TEXT NOT NULL,
+    "descricao" TEXT,
+    "link_externo" TEXT,
+    "arquivo_nome" TEXT,
+    "criado_em" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "id_responsavel" INTEGER NOT NULL,
+    CONSTRAINT "DOCUMENTACOES_id_responsavel_fkey" FOREIGN KEY ("id_responsavel") REFERENCES "USUARIOS" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "USUARIOS_email_key" ON "USUARIOS"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "USUARIOS_username_key" ON "USUARIOS"("username");
