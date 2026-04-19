@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Dependências
 node_modules/
 
@@ -9,16 +8,4 @@ node_modules/
 *.log
 
 # Vite build
-=======
-# Dependências
-node_modules/
-
-# Variáveis de ambiente
-.env
-
-# Logs
-*.log
-
-# Vite build
->>>>>>> 6942b55138e5abae29ef58a970fdbfc1b4ba58bd
 frontend/dist/
