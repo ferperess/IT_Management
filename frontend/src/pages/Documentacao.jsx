@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import usePageTitle from '../hooks/usePageTitle';
 
 const formVazio = { titulo: '', descricao: '', link_externo: '' };
 
@@ -17,6 +18,8 @@ export default function Documentacao() {
   const [mostrarForm, setMostrarForm] = useState(false);
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
+
+  usePageTitle('Documentação');
 
   async function carregar() {
     const { data } = await api.get('/documentacoes');

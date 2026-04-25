@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import api from '../services/api';
+import usePageTitle from '../hooks/usePageTitle';
 
 export default function CadastroUsuario() {
   const { id } = useParams();
@@ -14,6 +15,8 @@ export default function CadastroUsuario() {
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
   const [loading, setLoading] = useState(false);
+
+  usePageTitle(isEdicao ? 'Edição Usuário' : 'Cadastro Usuário');
 
   useEffect(() => {
     if (isEdicao) {

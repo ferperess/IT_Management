@@ -3,11 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import usePageTitle from '../hooks/usePageTitle';
 
 export default function Dashboard() {
   const { usuario } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState({ abertos: 0, andamento: 0, concluidos: 0, totalAtivos: 0 });
+
+  usePageTitle('Home');
 
   useEffect(() => {
     api.get('/dashboard').then(r => setStats(r.data)).catch(() => {});

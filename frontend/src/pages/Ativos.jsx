@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import usePageTitle from '../hooks/usePageTitle';
 
 const tiposOpts = ['Desktop', 'Notebook', 'Impressora', 'Servidor', 'Rede (Switch/Roteador)', 'Outro'];
 const statusOpts = ['ATIVO', 'EM_MANUTENCAO', 'INATIVO'];
@@ -20,6 +21,8 @@ export default function Ativos() {
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
   const [mostrarForm, setMostrarForm] = useState(false);
+
+  usePageTitle('Ativos');
 
   async function carregar() {
     const { data } = await api.get('/ativos');

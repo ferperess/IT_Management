@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import usePageTitle from '../hooks/usePageTitle';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -10,6 +11,8 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  usePageTitle('Login');
 
   async function handleSubmit(e) {
     e.preventDefault();

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import usePageTitle from '../hooks/usePageTitle';
 
 const prioridadeOpts = ['BAIXA', 'MEDIA', 'ALTA', 'CRITICA'];
 const statusOpts = ['ABERTO', 'EM_ANDAMENTO', 'CONCLUIDO', 'CANCELADO'];
@@ -20,6 +21,8 @@ export default function Chamados() {
   const [gestaoForm, setGestaoForm] = useState({ status: '', prioridade: '', id_tecnico: '', comentario: '' });
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
+
+  usePageTitle('Chamados');
 
   async function carregar() {
     const [c, a] = await Promise.all([api.get('/chamados'), api.get('/ativos')]);

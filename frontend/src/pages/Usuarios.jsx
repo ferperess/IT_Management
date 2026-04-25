@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import api from '../services/api';
+import usePageTitle from '../hooks/usePageTitle';
 
 export default function Usuarios() {
   const [usuarios, setUsuarios] = useState([]);
   const [busca, setBusca] = useState('');
   const navigate = useNavigate();
+
+  usePageTitle('Usuários');
 
   async function carregar(q = '') {
     try {
