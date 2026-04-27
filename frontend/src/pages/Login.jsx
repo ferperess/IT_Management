@@ -62,9 +62,6 @@ export default function Login() {
             {loading ? 'Entrando...' : 'Entrar no Sistema'}
           </button>
         </form>
-        <div className="login-links">
-          <a href="#">Esqueceu sua senha?</a>
-        </div>
       </div>
     </div>
   );

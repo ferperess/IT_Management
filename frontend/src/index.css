@@ -55,9 +55,6 @@ main { padding: 30px; max-width: 1200px; margin: 0 auto; }
 .login-box .form-group label { font-size: 16px; }
 .login-box .form-control { padding: 18px 15px; font-size: 18px; background-color: #fafafa; }
 .login-box .btn-primary { padding: 18px 20px; font-size: 18px; margin-top: 20px; }
-.login-links { text-align: center; margin-top: 25px; }
-.login-links a { color: var(--cps-cinza-escuro); text-decoration: none; font-size: 14px; }
-.login-links a:hover { color: var(--cps-vermelho); text-decoration: underline; }
 
 /* HEADER DE NAVEGAÇÃO PRINCIPAL */
 .nav-header {
@@ -134,6 +131,12 @@ hr.divider { margin: 15px 0; border: 0; border-top: 1px solid var(--cps-borda); 
 .badge-ativo { background: #eafaf1; color: #1e8449; border: 1px solid #27ae60; }
 .badge-inativo { background: #f2f3f4; color: #7f8c8d; border: 1px solid #bdc3c7; }
 .badge-manutencao { background: #fef5e7; color: #d35400; border: 1px solid #e67e22; }
+
+/* Badge prioridade */
+.badge-prio-baixa { background: #eafaf1; color: #1e8449; border: 1px solid #27ae60; }
+.badge-prio-media { background: #eaf4fb; color: #2471a3; border: 1px solid #2471a3; }
+.badge-prio-alta { background: #fef5e7; color: #d35400; border: 1px solid #e67e22; }
+.badge-prio-critica { background: #fdecea; color: #c0392b; border: 1px solid #e74c3c; }
 
 .historico-list { list-style: none; margin-top: 10px; }
 .historico-list li { font-size: 13px; color: var(--cps-cinza-escuro); padding: 6px 0; border-bottom: 1px solid var(--cps-borda); }

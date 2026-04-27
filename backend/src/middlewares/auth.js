@@ -1,5 +1,7 @@
 const jwt = require('jsonwebtoken');
-const SECRET = process.env.JWT_SECRET || 'gestao_ti_secret_2024';
+
+const SECRET = process.env.JWT_SECRET;
+if (!SECRET) throw new Error('JWT_SECRET não definido no .env');
 
 function autenticar(req, res, next) {
   const auth = req.headers.authorization;

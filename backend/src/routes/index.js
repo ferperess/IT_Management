@@ -18,6 +18,7 @@ router.get('/dashboard', autenticar, chamadosCtrl.dashboard);
 
 // Usuários (apenas Admin gerencia)
 router.get('/usuarios', autenticar, apenasAdmin, usuariosCtrl.listar);
+router.get('/usuarios/:id', autenticar, apenasAdmin, usuariosCtrl.buscarPorId);
 router.post('/usuarios', autenticar, apenasAdmin, usuariosCtrl.criar);
 router.put('/usuarios/:id', autenticar, apenasAdmin, usuariosCtrl.atualizar);
 router.patch('/usuarios/:id/inativar', autenticar, apenasAdmin, usuariosCtrl.inativar);

@@ -20,10 +20,10 @@ export default function CadastroUsuario() {
 
   useEffect(() => {
     if (isEdicao) {
-      api.get('/usuarios').then(r => {
-        const u = r.data.find(x => x.id === Number(id));
-        if (u) setForm({ nome: u.nome, email: u.email, username: u.username, senha: '', perfil: u.perfil, status: u.status });
-      });
+      api.get(`/usuarios/${id}`).then(r => {
+        const u = r.data;
+        setForm({ nome: u.nome, email: u.email, username: u.username, senha: '', perfil: u.perfil, status: u.status });
+      }).catch(() => navigate('/usuarios'));
     }
   }, [id]);
 
