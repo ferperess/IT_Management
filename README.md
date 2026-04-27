@@ -32,8 +32,8 @@ A aplicação abre em: http://localhost:5173
 
 ## Usuário de teste
 
- E-mail: teste@teste.com
- Senha: teste
+ E-mail: teste@teste.com  
+ Senha: teste  
  Perfil: ADMIN
 
 ---
