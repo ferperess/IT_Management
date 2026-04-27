@@ -41,25 +41,31 @@ A aplicação abre em: http://localhost:5173
 ## Estrutura do projeto
 
 ```
-gestao-ti/
+IT_Management/
 ├── backend/
 │   ├── prisma/
 │   │   ├── schema.prisma     # Modelos do banco de dados
-│   │   ├── seed.js           # Usuário admin teste
-|   |   └── dev.db            # Banco de Dados
+│   │   ├── seed.js           # Usuário admin padrão
+│   │   └── dev.db            # Banco de dados SQLite
 │   ├── src/
-│   │   ├── controllers/      # Lógica de negócio
-│   │   ├── middlewares/      # JWT + controle de perfil
+│   │   ├── controllers/      # Lógica de negócio (ativos, chamados, usuários, etc.)
+│   │   ├── middlewares/      # Autenticação JWT e controle de perfil
 │   │   ├── routes/           # Endpoints REST
+│   │   ├── services/         # Integração com IA (OpenRouter/Claude)
 │   │   └── server.js         # Entry point Express
+│   ├── .env                  # Variáveis de ambiente (chaves e segredos)
 │   └── package.json
 └── frontend/
     ├── src/
-    │   ├── context/          # AuthContext (JWT)
-    │   ├── pages/            # Login, Dashboard, Ativos, Chamados, etc.
+    │   ├── assets/           # Ícone da aplicação
     │   ├── components/       # Navbar
+    │   ├── context/          # AuthContext (JWT)
+    │   ├── hooks/            # usePageTitle
+    │   ├── pages/            # Login, Dashboard, Ativos, Chamados, Usuários, Documentação
     │   ├── services/         # Axios configurado
-    │   └── App.jsx           # Roteamento
+    │   ├── App.jsx           # Roteamento
+    │   ├── index.css         # Estilos globais
+    │   └── main.jsx          # Entry point React
     ├── index.html
     └── vite.config.js        # Proxy /api → localhost:3001
 ```
