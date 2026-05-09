@@ -1,7 +1,9 @@
 const bcrypt = require('bcryptjs');
 const prisma = require('../prisma');
 
-async function listar(req, res) {
+// async function listar
+// Correção Smell: async function listar_usuarios
+async function listar_usuarios(req, res) {
   try {
     const { busca } = req.query;
     const where = busca
@@ -31,7 +33,9 @@ async function buscarPorId(req, res) {
   }
 }
 
-async function criar(req, res) {
+// async function criar
+// Correção Smell: async function criar_usuario
+async function criar_usuario(req, res) {
   try {
     const { nome, email, username, senha, perfil, status } = req.body;
     if (!nome || !email || !username || !senha) {
@@ -49,7 +53,9 @@ async function criar(req, res) {
   }
 }
 
-async function atualizar(req, res) {
+// async function atualizar
+// Correção Smell: async function atualizar_usuario
+async function atualizar_usuario(req, res) {
   try {
     const { id } = req.params;
     const { nome, email, username, senha, perfil, status } = req.body;
@@ -70,7 +76,9 @@ async function atualizar(req, res) {
   }
 }
 
-async function inativar(req, res) {
+// async function inativar
+// Correção Smell: async function inativar_usuario
+async function inativar_usuario(req, res) {
   try {
     await prisma.uSUARIOS.update({ where: { id: Number(req.params.id) }, data: { status: 'INATIVO' } });
     res.json({ mensagem: 'Usuário inativado.' });
@@ -79,4 +87,4 @@ async function inativar(req, res) {
   }
 }
 
-module.exports = { listar, buscarPorId, criar, atualizar, inativar };
+module.exports = { listar: listar_usuarios, buscarPorId, criar: criar_usuario, atualizar: atualizar_usuario, inativar: inativar_usuario };
