@@ -7,6 +7,7 @@ const client = new Anthropic({
 
 const PRIORIDADES_VALIDAS = ['BAIXA', 'MEDIA', 'ALTA', 'CRITICA'];
 
+
 function sanitizar(texto) {
   return texto
     .replace(/[\r\n]+/g, ' ')  // remove quebras de linha
@@ -19,7 +20,9 @@ async function classificarPrioridade(titulo, descricao) {
   const tituloSeguro = sanitizar(titulo);
   const descricaoSegura = sanitizar(descricao);
 
-  const response = await client.messages.create({
+  // const response
+ // Correção Smell: const api_response
+  const api_response = await client.messages.create({
     model: 'anthropic/claude-haiku-4-5',
     max_tokens: 10,
     messages: [{
@@ -28,7 +31,7 @@ async function classificarPrioridade(titulo, descricao) {
     }]
   });
 
-  const resultado = response.content[0].text.trim().toUpperCase();
+  const resultado = api_response.content[0].text.trim().toUpperCase();
   return PRIORIDADES_VALIDAS.includes(resultado) ? resultado : 'MEDIA';
 }
 

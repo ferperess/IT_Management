@@ -8,7 +8,9 @@ const include = {
   historico: { include: { usuario: { select: { nome: true } } }, orderBy: { criado_em: 'asc' } },
 };
 
-async function listar(req, res) {
+// async function listar
+// Correção Smell: async function listar_chamados
+async function listar_chamados(req, res) {
   try {
     const chamados = await prisma.cHAMADOS.findMany({ include, orderBy: { criado_em: 'desc' } });
     res.json(chamados);
@@ -27,7 +29,9 @@ async function buscarPorId(req, res) {
   }
 }
 
-async function criar(req, res) {
+// async function criar
+// Correção Smell: async function criar_chamado
+async function criar_chamado(req, res) {
   try {
     const { titulo, descricao, id_ativo } = req.body;
     const id_solicitante = req.usuario.id;
@@ -77,7 +81,9 @@ async function criar(req, res) {
   }
 }
 
-async function atualizar(req, res) {
+// async function atualizar
+// Correção Smell: async function atualizar_chamado
+async function atualizar_chamado(req, res) {
   try {
     const { id } = req.params;
     const { status, prioridade, id_tecnico, comentario } = req.body;
@@ -123,4 +129,4 @@ async function dashboard(req, res) {
   }
 }
 
-module.exports = { listar, buscarPorId, criar, atualizar, dashboard };
+module.exports = { listar: listar_chamados, buscarPorId, criar: criar_chamado, atualizar: atualizar_chamado, dashboard };

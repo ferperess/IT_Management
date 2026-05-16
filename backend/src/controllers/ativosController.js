@@ -1,6 +1,8 @@
 const prisma = require('../prisma');
 
-async function listar(req, res) {
+// async function listar
+// Correção Smell: async function listar_ativos
+async function listar_ativos(req, res) {
   try {
     const ativos = await prisma.aTIVOS.findMany({ orderBy: { nome: 'asc' } });
     res.json(ativos);
@@ -9,7 +11,9 @@ async function listar(req, res) {
   }
 }
 
-async function criar(req, res) {
+// async function criar
+// Correção Smell: async function criar_ativo
+async function criar_ativo(req, res) {
   try {
     const { nome, tipo, localizacao, data_aquisicao, status } = req.body;
     if (!nome || !tipo || !localizacao) {
@@ -30,7 +34,9 @@ async function criar(req, res) {
   }
 }
 
-async function atualizar(req, res) {
+// async function atualizar
+// Correção Smell: async function atualizar_ativo
+async function atualizar_ativo(req, res) {
   try {
     const { id } = req.params;
     const { nome, tipo, localizacao, data_aquisicao, status } = req.body;
@@ -44,7 +50,9 @@ async function atualizar(req, res) {
   }
 }
 
-async function remover(req, res) {
+// async function remover
+// Correção Smell: async function remover_ativo
+async function remover_ativo(req, res) {
   try {
     await prisma.aTIVOS.delete({ where: { id: Number(req.params.id) } });
     res.json({ mensagem: 'Ativo removido.' });
@@ -53,4 +61,4 @@ async function remover(req, res) {
   }
 }
 
-module.exports = { listar, criar, atualizar, remover };
+module.exports = { listar: listar_ativos, criar: criar_ativo, atualizar: atualizar_ativo, remover: remover_ativo };

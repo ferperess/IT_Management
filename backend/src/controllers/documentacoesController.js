@@ -1,6 +1,8 @@
 const prisma = require('../prisma');
 
-async function listar(req, res) {
+// async function listar
+// Correção Smell: async function listar_documentacoes
+async function listar_documentacoes(req, res) {
   try {
     const docs = await prisma.dOCUMENTACOES.findMany({
       include: { responsavel: { select: { id: true, nome: true } } },
@@ -25,7 +27,9 @@ async function buscarPorId(req, res) {
   }
 }
 
-async function criar(req, res) {
+// async function criar
+// Correção Smell: async function criar_documentacao
+async function criar_documentacao(req, res) {
   try {
     const { titulo, descricao, link_externo } = req.body;
     if (!titulo) return res.status(400).json({ erro: 'Título obrigatório.' });
@@ -45,7 +49,9 @@ async function criar(req, res) {
   }
 }
 
-async function atualizar(req, res) {
+// async function atualizar
+// Correção Smell: async function atualizar_documentacao
+async function atualizar_documentacao(req, res) {
   try {
     const { id } = req.params;
     const { titulo, descricao, link_externo } = req.body;
@@ -59,7 +65,9 @@ async function atualizar(req, res) {
   }
 }
 
-async function remover(req, res) {
+// async function remover
+// Correção Smell: async function remover_documentacao
+async function remover_documentacao(req, res) {
   try {
     await prisma.dOCUMENTACOES.delete({ where: { id: Number(req.params.id) } });
     res.json({ mensagem: 'Documento removido.' });
@@ -68,4 +76,4 @@ async function remover(req, res) {
   }
 }
 
-module.exports = { listar, buscarPorId, criar, atualizar, remover };
+module.exports = { listar: listar_documentacoes, buscarPorId, criar: criar_documentacao, atualizar: atualizar_documentacao, remover: remover_documentacao };
