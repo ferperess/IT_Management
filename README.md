@@ -30,6 +30,50 @@ A aplicação abre em: http://localhost:5173
 
 ---
 
+## Testes
+
+Os testes unitários cobrem os controllers, middlewares e o serviço de IA. Eles rodam de forma isolada, sem precisar de conexão com o banco de dados ou com a API do OpenRouter.
+
+### Executar os testes
+
+```bash
+cd backend
+npm test
+```
+
+### Executar com relatório de cobertura
+
+```bash
+cd backend
+npm run test:coverage
+```
+
+### Estrutura dos testes
+
+```
+backend/src/tests/
+├── setup.js                      # Variáveis de ambiente para o ambiente de teste
+├── auth.middleware.test.js        # Middleware de autenticação JWT e controle de perfil
+├── auth.controller.test.js        # Login: campos obrigatórios, credenciais, token
+├── usuarios.controller.test.js    # CRUD de usuários e inativação
+├── ativos.controller.test.js      # CRUD de ativos de TI
+├── chamados.controller.test.js    # Abertura, atualização e dashboard de chamados
+└── apiService.test.js             # Classificação de prioridade por IA e sanitização
+```
+
+### O que é testado
+
+| Suite | Casos |
+|---|---|
+| Middleware de autenticação | Token válido, expirado, inválido, ausente; restrição por perfil ADMIN, TECNICO e COMUM |
+| Login | Campos ausentes, usuário inexistente, conta inativa, senha errada, sucesso, erro de banco |
+| Usuários | Listar, buscar por ID, criar com campos faltando, e-mail duplicado, atualizar, inativar |
+| Ativos | Listar, criar com campos faltando, criar com sucesso, atualizar, remover |
+| Chamados | Listar, buscar, criar sem campos obrigatórios, ativo inexistente, atualizar, dashboard |
+| Serviço de IA | Classificação ALTA/BAIXA/MEDIA/CRÍTICA, valor inválido, sanitização, limite de caracteres |
+
+---
+
 ## Usuário de teste
 
  E-mail: teste@teste.com  
@@ -45,13 +89,13 @@ IT_Management/
 ├── backend/
 │   ├── prisma/
 │   │   ├── schema.prisma     # Modelos do banco de dados
-│   │   ├── seed.js           # Usuário admin padrão
-│   │   └── dev.db            # Banco de dados SQLite
+│   │   └── migrations/       # Histórico de migrações
 │   ├── src/
 │   │   ├── controllers/      # Lógica de negócio (ativos, chamados, usuários, etc.)
 │   │   ├── middlewares/      # Autenticação JWT e controle de perfil
 │   │   ├── routes/           # Endpoints REST
 │   │   ├── services/         # Integração com IA (OpenRouter/Claude)
+│   │   ├── tests/            # Testes unitários
 │   │   └── server.js         # Entry point Express
 │   ├── .env                  # Variáveis de ambiente (chaves e segredos)
 │   └── package.json
