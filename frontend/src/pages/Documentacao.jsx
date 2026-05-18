@@ -4,13 +4,15 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import usePageTitle from '../hooks/usePageTitle';
 
-const formVazio = { titulo: '', descricao: '', link_externo: '' };
+const formVazio = { titulo: '', descricao: '', link_externo: '', id_ativo: '', id_chamado: '' };
 
 export default function Documentacao() {
   const { usuario } = useAuth();
   const podeEditar = ['ADMIN', 'TECNICO'].includes(usuario?.perfil);
 
   const [docs, setDocs] = useState([]);
+  const [ativos, setAtivos] = useState([]);
+  const [chamados, setChamados] = useState([]);
   const [form, setForm] = useState(formVazio);
   const [arquivo, setArquivo] = useState(null);
   const [editandoId, setEditandoId] = useState(null);
@@ -22,8 +24,14 @@ export default function Documentacao() {
   usePageTitle('Documentação');
 
   async function carregar() {
-    const { data } = await api.get('/documentacoes');
-    setDocs(data);
+    const [d, a, c] = await Promise.all([
+      api.get('/documentacoes'),
+      api.get('/ativos'),
+      api.get('/chamados'),
+    ]);
+    setDocs(d.data);
+    setAtivos(a.data);
+    setChamados(c.data);
   }
 
   useEffect(() => { carregar(); }, []);
@@ -40,7 +48,13 @@ export default function Documentacao() {
 
   function iniciarEdicao(d) {
     setEditandoId(d.id);
-    setForm({ titulo: d.titulo, descricao: d.descricao || '', link_externo: d.link_externo || '' });
+    setForm({
+      titulo: d.titulo,
+      descricao: d.descricao || '',
+      link_externo: d.link_externo || '',
+      id_ativo: d.id_ativo || '',
+      id_chamado: d.id_chamado || '',
+    });
     setArquivo(null);
     setMostrarForm(true);
     setErro(''); setSucesso('');
@@ -54,6 +68,8 @@ export default function Documentacao() {
       fd.append('titulo', form.titulo);
       fd.append('descricao', form.descricao);
       fd.append('link_externo', form.link_externo);
+      if (form.id_ativo) fd.append('id_ativo', form.id_ativo);
+      if (form.id_chamado) fd.append('id_chamado', form.id_chamado);
       if (arquivo) fd.append('arquivo', arquivo);
 
       if (editandoId) {
@@ -97,12 +113,14 @@ export default function Documentacao() {
           </div>
           <table className="cps-table">
             <thead>
-              <tr><th>Título</th><th>Responsável</th><th>Data Registro</th><th>Ações</th></tr>
+              <tr><th>Título</th><th>Ativo Vinculado</th><th>Chamado Vinculado</th><th>Responsável</th><th>Data Registro</th><th>Ações</th></tr>
             </thead>
             <tbody>
               {docs.map(d => (
                 <tr key={d.id}>
                   <td>{d.titulo}</td>
+                  <td>{d.ativo ? d.ativo.nome : <span style={{ color: '#bbb' }}>—</span>}</td>
+                  <td>{d.chamado ? `#${d.chamado.id} - ${d.chamado.titulo}` : <span style={{ color: '#bbb' }}>—</span>}</td>
                   <td>{d.responsavel?.nome}</td>
                   <td>{fmtData(d.criado_em)}</td>
                   <td className="actions-bar">
@@ -119,7 +137,7 @@ export default function Documentacao() {
                 </tr>
               ))}
               {docs.length === 0 && (
-                <tr><td colSpan={4} style={{ textAlign: 'center', color: '#999', padding: 20 }}>Nenhum documento cadastrado.</td></tr>
+                <tr><td colSpan={6} style={{ textAlign: 'center', color: '#999', padding: 20 }}>Nenhum documento cadastrado.</td></tr>
               )}
             </tbody>
           </table>
@@ -135,7 +153,17 @@ export default function Documentacao() {
             <p style={{ fontSize: 13, color: '#999', marginBottom: 10 }}>
               Por: {lendoDoc.responsavel?.nome} | {new Date(lendoDoc.criado_em).toLocaleDateString('pt-BR')}
             </p>
-            {lendoDoc.descricao && <p style={{ marginBottom: 10 }}>{lendoDoc.descricao}</p>}
+            {lendoDoc.ativo && (
+              <p style={{ marginBottom: 6 }}>
+                🖥️ <strong>Ativo vinculado:</strong> {lendoDoc.ativo.nome}
+              </p>
+            )}
+            {lendoDoc.chamado && (
+              <p style={{ marginBottom: 6 }}>
+                🎫 <strong>Chamado vinculado:</strong> #{lendoDoc.chamado.id} — {lendoDoc.chamado.titulo}
+              </p>
+            )}
+            {lendoDoc.descricao && <p style={{ marginBottom: 10, marginTop: 10 }}>{lendoDoc.descricao}</p>}
             {lendoDoc.link_externo && (
               <p><a href={lendoDoc.link_externo} target="_blank" rel="noreferrer" style={{ color: 'var(--cps-vermelho)' }}>
                 🔗 {lendoDoc.link_externo}
@@ -162,6 +190,26 @@ export default function Documentacao() {
               <div className="form-group">
                 <label>Descrição</label>
                 <textarea className="form-control" rows={3} value={form.descricao} onChange={set('descricao')} />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Ativo Relacionado (Opcional)</label>
+                  <select className="form-control" value={form.id_ativo} onChange={set('id_ativo')}>
+                    <option value="">— Nenhum —</option>
+                    {ativos.map(a => (
+                      <option key={a.id} value={a.id}>{a.nome} ({a.tipo})</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Chamado Relacionado (Opcional)</label>
+                  <select className="form-control" value={form.id_chamado} onChange={set('id_chamado')}>
+                    <option value="">— Nenhum —</option>
+                    {chamados.map(c => (
+                      <option key={c.id} value={c.id}>#{c.id} — {c.titulo}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div className="form-row">
                 <div className="form-group">

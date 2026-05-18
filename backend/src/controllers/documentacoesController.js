@@ -1,11 +1,15 @@
 const prisma = require('../prisma');
 
-// async function listar
-// Correção Smell: async function listar_documentacoes
+const include = {
+  responsavel: { select: { id: true, nome: true } },
+  ativo: { select: { id: true, nome: true } },
+  chamado: { select: { id: true, titulo: true } },
+};
+
 async function listar_documentacoes(req, res) {
   try {
     const docs = await prisma.dOCUMENTACOES.findMany({
-      include: { responsavel: { select: { id: true, nome: true } } },
+      include,
       orderBy: { criado_em: 'desc' },
     });
     res.json(docs);
@@ -18,7 +22,7 @@ async function buscarPorId(req, res) {
   try {
     const doc = await prisma.dOCUMENTACOES.findUnique({
       where: { id: Number(req.params.id) },
-      include: { responsavel: { select: { nome: true } } },
+      include,
     });
     if (!doc) return res.status(404).json({ erro: 'Documento não encontrado.' });
     res.json(doc);
@@ -27,12 +31,23 @@ async function buscarPorId(req, res) {
   }
 }
 
-// async function criar
-// Correção Smell: async function criar_documentacao
 async function criar_documentacao(req, res) {
   try {
-    const { titulo, descricao, link_externo } = req.body;
+    const { titulo, descricao, link_externo, id_ativo, id_chamado } = req.body;
     if (!titulo) return res.status(400).json({ erro: 'Título obrigatório.' });
+
+    // Valida ativo se fornecido
+    if (id_ativo) {
+      const ativo = await prisma.aTIVOS.findUnique({ where: { id: Number(id_ativo) } });
+      if (!ativo) return res.status(400).json({ erro: 'Ativo não encontrado.' });
+    }
+
+    // Valida chamado se fornecido
+    if (id_chamado) {
+      const chamado = await prisma.cHAMADOS.findUnique({ where: { id: Number(id_chamado) } });
+      if (!chamado) return res.status(400).json({ erro: 'Chamado não encontrado.' });
+    }
+
     const doc = await prisma.dOCUMENTACOES.create({
       data: {
         titulo,
@@ -40,8 +55,10 @@ async function criar_documentacao(req, res) {
         link_externo,
         arquivo_nome: req.file ? req.file.originalname : null,
         id_responsavel: req.usuario.id,
+        id_ativo: id_ativo ? Number(id_ativo) : null,
+        id_chamado: id_chamado ? Number(id_chamado) : null,
       },
-      include: { responsavel: { select: { nome: true } } },
+      include,
     });
     res.status(201).json(doc);
   } catch {
@@ -49,24 +66,40 @@ async function criar_documentacao(req, res) {
   }
 }
 
-// async function atualizar
-// Correção Smell: async function atualizar_documentacao
 async function atualizar_documentacao(req, res) {
   try {
     const { id } = req.params;
-    const { titulo, descricao, link_externo } = req.body;
+    const { titulo, descricao, link_externo, id_ativo, id_chamado } = req.body;
+
+    // Valida ativo se fornecido
+    if (id_ativo) {
+      const ativo = await prisma.aTIVOS.findUnique({ where: { id: Number(id_ativo) } });
+      if (!ativo) return res.status(400).json({ erro: 'Ativo não encontrado.' });
+    }
+
+    // Valida chamado se fornecido
+    if (id_chamado) {
+      const chamado = await prisma.cHAMADOS.findUnique({ where: { id: Number(id_chamado) } });
+      if (!chamado) return res.status(400).json({ erro: 'Chamado não encontrado.' });
+    }
+
     const data = { titulo, descricao, link_externo };
     if (req.file) data.arquivo_nome = req.file.originalname;
+    data.id_ativo = id_ativo ? Number(id_ativo) : null;
+    data.id_chamado = id_chamado ? Number(id_chamado) : null;
     Object.keys(data).forEach(k => data[k] === undefined && delete data[k]);
-    const doc = await prisma.dOCUMENTACOES.update({ where: { id: Number(id) }, data });
+
+    const doc = await prisma.dOCUMENTACOES.update({
+      where: { id: Number(id) },
+      data,
+      include,
+    });
     res.json(doc);
   } catch {
     res.status(404).json({ erro: 'Documento não encontrado.' });
   }
 }
 
-// async function remover
-// Correção Smell: async function remover_documentacao
 async function remover_documentacao(req, res) {
   try {
     await prisma.dOCUMENTACOES.delete({ where: { id: Number(req.params.id) } });
@@ -76,4 +109,10 @@ async function remover_documentacao(req, res) {
   }
 }
 
-module.exports = { listar: listar_documentacoes, buscarPorId, criar: criar_documentacao, atualizar: atualizar_documentacao, remover: remover_documentacao };
+module.exports = {
+  listar: listar_documentacoes,
+  buscarPorId,
+  criar: criar_documentacao,
+  atualizar: atualizar_documentacao,
+  remover: remover_documentacao,
+};

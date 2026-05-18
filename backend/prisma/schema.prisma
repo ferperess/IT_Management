@@ -24,25 +24,26 @@ model USUARIOS {
 }
 
 model ATIVOS {
-  id              Int       @id @default(autoincrement())
-  nome            String
-  tipo            String
-  localizacao     String
-  data_aquisicao  DateTime?
-  status          String    @default("ATIVO") // ATIVO | EM_MANUTENCAO | INATIVO
-  criado_em       DateTime  @default(now())
+  id             Int       @id @default(autoincrement())
+  nome           String
+  tipo           String
+  localizacao    String
+  data_aquisicao DateTime?
+  status         String    @default("ATIVO") // ATIVO | EM_MANUTENCAO | INATIVO
+  criado_em      DateTime  @default(now())
 
-  chamados CHAMADOS[]
+  chamados      CHAMADOS[]
+  documentacoes DOCUMENTACOES[]
 }
 
 model CHAMADOS {
-  id             Int      @id @default(autoincrement())
-  titulo         String
-  descricao      String
-  prioridade     String   @default("MEDIA") // BAIXA | MEDIA | ALTA | CRITICA
-  status         String   @default("ABERTO") // ABERTO | EM_ANDAMENTO | CONCLUIDO | CANCELADO
-  criado_em      DateTime @default(now())
-  atualizado_em  DateTime @updatedAt
+  id            Int      @id @default(autoincrement())
+  titulo        String
+  descricao     String
+  prioridade    String   @default("MEDIA") // BAIXA | MEDIA | ALTA | CRITICA
+  status        String   @default("ABERTO") // ABERTO | EM_ANDAMENTO | CONCLUIDO | CANCELADO
+  criado_em     DateTime @default(now())
+  atualizado_em DateTime @updatedAt
 
   id_solicitante Int
   solicitante    USUARIOS @relation("solicitante", fields: [id_solicitante], references: [id])
@@ -53,7 +54,8 @@ model CHAMADOS {
   id_tecnico Int?
   tecnico    USUARIOS? @relation("tecnico", fields: [id_tecnico], references: [id])
 
-  historico HISTORICO_CHAMADOS[]
+  historico     HISTORICO_CHAMADOS[]
+  documentacoes DOCUMENTACOES[]
 }
 
 model HISTORICO_CHAMADOS {
@@ -79,4 +81,10 @@ model DOCUMENTACOES {
 
   id_responsavel Int
   responsavel    USUARIOS @relation(fields: [id_responsavel], references: [id])
+
+  id_ativo Int?
+  ativo    ATIVOS? @relation(fields: [id_ativo], references: [id])
+
+  id_chamado Int?
+  chamado    CHAMADOS? @relation(fields: [id_chamado], references: [id])
 }
