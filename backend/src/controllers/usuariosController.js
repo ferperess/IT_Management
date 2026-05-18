@@ -1,8 +1,12 @@
 const bcrypt = require('bcryptjs');
 const prisma = require('../prisma');
+const {
+  PERFIS_VALIDOS,
+  STATUS_USUARIO_VALIDOS,
+  validarEmail,
+  validarSenha,
+} = require('../validators');
 
-// async function listar
-// Correção Smell: async function listar_usuarios
 async function listar_usuarios(req, res) {
   try {
     const { busca } = req.query;
@@ -33,14 +37,34 @@ async function buscarPorId(req, res) {
   }
 }
 
-// async function criar
-// Correção Smell: async function criar_usuario
 async function criar_usuario(req, res) {
   try {
     const { nome, email, username, senha, perfil, status } = req.body;
+
     if (!nome || !email || !username || !senha) {
       return res.status(400).json({ erro: 'Campos obrigatórios: nome, email, username, senha.' });
     }
+
+    // Validação de formato de e-mail
+    if (!validarEmail(email)) {
+      return res.status(400).json({ erro: 'Formato de e-mail inválido.' });
+    }
+
+    // Validação de senha mínima
+    if (!validarSenha(senha)) {
+      return res.status(400).json({ erro: 'A senha deve ter no mínimo 6 caracteres.' });
+    }
+
+    // Validação de perfil
+    if (perfil && !PERFIS_VALIDOS.includes(perfil)) {
+      return res.status(400).json({ erro: `Perfil inválido. Valores aceitos: ${PERFIS_VALIDOS.join(', ')}.` });
+    }
+
+    // Validação de status
+    if (status && !STATUS_USUARIO_VALIDOS.includes(status)) {
+      return res.status(400).json({ erro: `Status inválido. Valores aceitos: ${STATUS_USUARIO_VALIDOS.join(', ')}.` });
+    }
+
     const hash = await bcrypt.hash(senha, 10);
     const u = await prisma.uSUARIOS.create({
       data: { nome, email, username, senha_hash: hash, perfil: perfil || 'COMUM', status: status || 'ATIVO' },
@@ -53,12 +77,31 @@ async function criar_usuario(req, res) {
   }
 }
 
-// async function atualizar
-// Correção Smell: async function atualizar_usuario
 async function atualizar_usuario(req, res) {
   try {
     const { id } = req.params;
     const { nome, email, username, senha, perfil, status } = req.body;
+
+    // Validação de formato de e-mail
+    if (email && !validarEmail(email)) {
+      return res.status(400).json({ erro: 'Formato de e-mail inválido.' });
+    }
+
+    // Validação de senha mínima
+    if (senha && !validarSenha(senha)) {
+      return res.status(400).json({ erro: 'A senha deve ter no mínimo 6 caracteres.' });
+    }
+
+    // Validação de perfil
+    if (perfil && !PERFIS_VALIDOS.includes(perfil)) {
+      return res.status(400).json({ erro: `Perfil inválido. Valores aceitos: ${PERFIS_VALIDOS.join(', ')}.` });
+    }
+
+    // Validação de status
+    if (status && !STATUS_USUARIO_VALIDOS.includes(status)) {
+      return res.status(400).json({ erro: `Status inválido. Valores aceitos: ${STATUS_USUARIO_VALIDOS.join(', ')}.` });
+    }
+
     const data = { nome, email, username, perfil, status };
     if (senha) data.senha_hash = await bcrypt.hash(senha, 10);
     Object.keys(data).forEach(k => data[k] === undefined && delete data[k]);
@@ -76,11 +119,16 @@ async function atualizar_usuario(req, res) {
   }
 }
 
-// async function inativar
-// Correção Smell: async function inativar_usuario
 async function inativar_usuario(req, res) {
   try {
-    await prisma.uSUARIOS.update({ where: { id: Number(req.params.id) }, data: { status: 'INATIVO' } });
+    const idAlvo = Number(req.params.id);
+
+    // Admin não pode inativar a si mesmo
+    if (req.usuario.id === idAlvo) {
+      return res.status(400).json({ erro: 'Você não pode inativar sua própria conta.' });
+    }
+
+    await prisma.uSUARIOS.update({ where: { id: idAlvo }, data: { status: 'INATIVO' } });
     res.json({ mensagem: 'Usuário inativado.' });
   } catch {
     res.status(404).json({ erro: 'Usuário não encontrado.' });
