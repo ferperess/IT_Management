@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model USUARIOS {
@@ -40,8 +40,9 @@ model CHAMADOS {
   id            Int      @id @default(autoincrement())
   titulo        String
   descricao     String
-  prioridade    String   @default("MEDIA") // BAIXA | MEDIA | ALTA | CRITICA
-  status        String   @default("ABERTO") // ABERTO | EM_ANDAMENTO | CONCLUIDO | CANCELADO
+  prioridade    String   @default("MEDIA")    // BAIXA | MEDIA | ALTA | CRITICA
+  categoria     String   @default("OUTRO")    // HARDWARE | SOFTWARE | REDE | ACESSO | IMPRESSORA | AUDIOVISUAL | OUTRO
+  status        String   @default("ABERTO")   // ABERTO | EM_ANDAMENTO | CONCLUIDO | CANCELADO
   criado_em     DateTime @default(now())
   atualizado_em DateTime @updatedAt
 

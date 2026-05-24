@@ -1,8 +1,9 @@
 const prisma = require('../prisma');
-const { classificarPrioridade } = require('../services/apiService');
+const { classificarChamado } = require('../services/apiService');
 const {
   STATUS_CHAMADO_VALIDOS,
   PRIORIDADES_VALIDAS,
+  CATEGORIAS_VALIDAS,
   validarTransicaoStatus,
 } = require('../validators');
 
@@ -16,10 +17,7 @@ const include = {
 async function listar_chamados(req, res) {
   try {
     const { perfil, id } = req.usuario;
-
-    // Usuário COMUM só vê seus próprios chamados
     const where = perfil === 'COMUM' ? { id_solicitante: id } : {};
-
     const chamados = await prisma.cHAMADOS.findMany({ where, include, orderBy: { criado_em: 'desc' } });
     res.json(chamados);
   } catch {
@@ -31,12 +29,9 @@ async function buscarPorId(req, res) {
   try {
     const c = await prisma.cHAMADOS.findUnique({ where: { id: Number(req.params.id) }, include });
     if (!c) return res.status(404).json({ erro: 'Chamado não encontrado.' });
-
-    // Usuário COMUM só acessa seus próprios chamados
     if (req.usuario.perfil === 'COMUM' && c.id_solicitante !== req.usuario.id) {
       return res.status(403).json({ erro: 'Acesso negado.' });
     }
-
     res.json(c);
   } catch {
     res.status(500).json({ erro: 'Erro ao buscar chamado.' });
@@ -51,8 +46,6 @@ async function criar_chamado(req, res) {
     if (!titulo || !descricao) {
       return res.status(400).json({ erro: 'Campos obrigatórios: titulo, descricao.' });
     }
-
-    // Validação de tamanho mínimo
     if (titulo.trim().length < 5) {
       return res.status(400).json({ erro: 'O título deve ter no mínimo 5 caracteres.' });
     }
@@ -63,8 +56,6 @@ async function criar_chamado(req, res) {
     if (id_ativo) {
       const ativo = await prisma.aTIVOS.findUnique({ where: { id: Number(id_ativo) } });
       if (!ativo) return res.status(400).json({ erro: 'Ativo não encontrado.' });
-
-      // Ativo em manutenção não pode ser vinculado a novo chamado
       if (ativo.status === 'MANUTENCAO') {
         return res.status(400).json({ erro: 'O ativo selecionado está em manutenção e não pode ser vinculado a um novo chamado.' });
       }
@@ -74,20 +65,17 @@ async function criar_chamado(req, res) {
     if (!solicitante) return res.status(400).json({ erro: 'Solicitante inválido.' });
 
     let prioridade = 'MEDIA';
+    let categoria = 'OUTRO';
     try {
-      prioridade = await classificarPrioridade(titulo, descricao);
+      const classificacao = await classificarChamado(titulo, descricao);
+      prioridade = classificacao.prioridade;
+      categoria = classificacao.categoria;
     } catch (iaErr) {
-      console.error('Erro na classificação por IA, usando prioridade padrão:', iaErr.message);
+      console.error('Erro na classificação por IA, usando valores padrão:', iaErr.message);
     }
 
     const chamado = await prisma.cHAMADOS.create({
-      data: {
-        titulo,
-        descricao,
-        prioridade,
-        id_solicitante,
-        id_ativo: id_ativo ? Number(id_ativo) : null,
-      },
+      data: { titulo, descricao, prioridade, categoria, id_solicitante, id_ativo: id_ativo ? Number(id_ativo) : null },
       include,
     });
 
@@ -109,18 +97,15 @@ async function criar_chamado(req, res) {
 async function atualizar_chamado(req, res) {
   try {
     const { id } = req.params;
-    const { status, prioridade, id_tecnico, comentario } = req.body;
+    const { status, prioridade, categoria, id_tecnico, comentario } = req.body;
 
     const chamado = await prisma.cHAMADOS.findUnique({ where: { id: Number(id) } });
     if (!chamado) return res.status(404).json({ erro: 'Chamado não encontrado.' });
 
-    // Validação de status
     if (status) {
       if (!STATUS_CHAMADO_VALIDOS.includes(status)) {
         return res.status(400).json({ erro: `Status inválido. Valores aceitos: ${STATUS_CHAMADO_VALIDOS.join(', ')}.` });
       }
-
-      // Valida se a transição de status é permitida
       if (status !== chamado.status && !validarTransicaoStatus(chamado.status, status)) {
         return res.status(400).json({
           erro: `Transição de status inválida: não é possível mover de "${chamado.status}" para "${status}".`,
@@ -128,17 +113,17 @@ async function atualizar_chamado(req, res) {
       }
     }
 
-    // Validação de prioridade
     if (prioridade && !PRIORIDADES_VALIDAS.includes(prioridade)) {
       return res.status(400).json({ erro: `Prioridade inválida. Valores aceitos: ${PRIORIDADES_VALIDAS.join(', ')}.` });
     }
 
-    // Valida se o técnico atribuído existe e tem perfil adequado
+    if (categoria && !CATEGORIAS_VALIDAS.includes(categoria)) {
+      return res.status(400).json({ erro: `Categoria inválida. Valores aceitos: ${CATEGORIAS_VALIDAS.join(', ')}.` });
+    }
+
     if (id_tecnico) {
       const tecnico = await prisma.uSUARIOS.findUnique({ where: { id: Number(id_tecnico) } });
-      if (!tecnico) {
-        return res.status(400).json({ erro: 'Técnico não encontrado.' });
-      }
+      if (!tecnico) return res.status(400).json({ erro: 'Técnico não encontrado.' });
       if (!['TECNICO', 'ADMIN'].includes(tecnico.perfil)) {
         return res.status(400).json({ erro: 'O usuário selecionado não possui perfil de Técnico ou Administrador.' });
       }
@@ -150,6 +135,7 @@ async function atualizar_chamado(req, res) {
     const data = {};
     if (status) data.status = status;
     if (prioridade) data.prioridade = prioridade;
+    if (categoria) data.categoria = categoria;
     if (id_tecnico !== undefined) data.id_tecnico = id_tecnico ? Number(id_tecnico) : null;
 
     const updated = await prisma.cHAMADOS.update({ where: { id: Number(id) }, data, include });
@@ -185,4 +171,100 @@ async function dashboard(req, res) {
   }
 }
 
-module.exports = { listar: listar_chamados, buscarPorId, criar: criar_chamado, atualizar: atualizar_chamado, dashboard };
+async function relatorios(req, res) {
+  try {
+    const { dataInicio, dataFim } = req.query;
+
+    const where = {};
+    if (dataInicio || dataFim) {
+      where.criado_em = {};
+      if (dataInicio) where.criado_em.gte = new Date(dataInicio);
+      if (dataFim) {
+        const fim = new Date(dataFim);
+        fim.setHours(23, 59, 59, 999);
+        where.criado_em.lte = fim;
+      }
+    }
+
+    const totalPeriodo = await prisma.cHAMADOS.count({ where });
+
+    const porCategoria = await prisma.cHAMADOS.groupBy({
+      by: ['categoria'],
+      where,
+      _count: { id: true },
+      orderBy: { _count: { id: 'desc' } },
+    });
+
+    const porPrioridade = await prisma.cHAMADOS.groupBy({
+      by: ['prioridade'],
+      where,
+      _count: { id: true },
+      orderBy: { _count: { id: 'desc' } },
+    });
+
+    const porStatus = await prisma.cHAMADOS.groupBy({
+      by: ['status'],
+      where,
+      _count: { id: true },
+    });
+
+    const rankingAtivos = await prisma.cHAMADOS.groupBy({
+      by: ['id_ativo'],
+      where: { ...where, id_ativo: { not: null } },
+      _count: { id: true },
+      orderBy: { _count: { id: 'desc' } },
+      take: 5,
+    });
+
+    const idsAtivos = rankingAtivos.map(r => r.id_ativo);
+    const ativos = await prisma.aTIVOS.findMany({
+      where: { id: { in: idsAtivos } },
+      select: { id: true, nome: true, tipo: true },
+    });
+    const rankingAtivosComNome = rankingAtivos.map(r => ({
+      ...ativos.find(a => a.id === r.id_ativo),
+      total_chamados: r._count.id,
+    }));
+
+    const concluidos = await prisma.cHAMADOS.findMany({
+      where: { ...where, status: 'CONCLUIDO', id_tecnico: { not: null } },
+      select: {
+        id_tecnico: true,
+        tecnico: { select: { nome: true } },
+        criado_em: true,
+        atualizado_em: true,
+      },
+    });
+
+    const temposPorTecnico = {};
+    concluidos.forEach(c => {
+      const key = c.id_tecnico;
+      const diff = (new Date(c.atualizado_em) - new Date(c.criado_em)) / (1000 * 60 * 60);
+      if (!temposPorTecnico[key]) {
+        temposPorTecnico[key] = { nome: c.tecnico.nome, total: 0, soma: 0 };
+      }
+      temposPorTecnico[key].total++;
+      temposPorTecnico[key].soma += diff;
+    });
+
+    const tempoMedioPorTecnico = Object.values(temposPorTecnico).map(t => ({
+      tecnico: t.nome,
+      chamados_concluidos: t.total,
+      tempo_medio_horas: Math.round((t.soma / t.total) * 10) / 10,
+    })).sort((a, b) => a.tempo_medio_horas - b.tempo_medio_horas);
+
+    res.json({
+      periodo: { dataInicio: dataInicio || null, dataFim: dataFim || null },
+      totalPeriodo,
+      porCategoria: porCategoria.map(r => ({ categoria: r.categoria, total: r._count.id })),
+      porPrioridade: porPrioridade.map(r => ({ prioridade: r.prioridade, total: r._count.id })),
+      porStatus: porStatus.map(r => ({ status: r.status, total: r._count.id })),
+      rankingAtivos: rankingAtivosComNome,
+      tempoMedioPorTecnico,
+    });
+  } catch {
+    res.status(500).json({ erro: 'Erro ao gerar relatórios.' });
+  }
+}
+
+module.exports = { listar: listar_chamados, buscarPorId, criar: criar_chamado, atualizar: atualizar_chamado, dashboard, relatorios };
