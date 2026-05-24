@@ -2,9 +2,24 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const routes = require('./routes');
 
 const app = express();
+
+// Configuração de Segurança com Helmet
+app.use(helmet());
+
+// Limitação de Taxa (Rate Limiting)
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100, // Limita cada IP a 100 requisições por janela
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { erro: 'Muitas requisições vindas deste IP, tente novamente mais tarde.' }
+});
+app.use('/api/', limiter);
 
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
