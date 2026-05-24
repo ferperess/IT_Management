@@ -9,9 +9,13 @@ const {
 
 async function listar_usuarios(req, res) {
   try {
-    const { busca } = req.query;
+    let { busca } = req.query;
+    if (busca) {
+      // Limita o tamanho da busca e remove caracteres perigosos
+      busca = busca.trim().substring(0, 100);
+    }
     const where = busca
-      ? { OR: [{ nome: { contains: busca } }, { email: { contains: busca } }] }
+      ? { OR: [{ nome: { contains: busca, mode: 'insensitive' } }, { email: { contains: busca, mode: 'insensitive' } }] }
       : {};
     const usuarios = await prisma.uSUARIOS.findMany({
       where,
@@ -39,7 +43,12 @@ async function buscarPorId(req, res) {
 
 async function criar_usuario(req, res) {
   try {
-    const { nome, email, username, senha, perfil, status } = req.body;
+    let { nome, email, username, senha, perfil, status } = req.body;
+
+    // Sanitização de entradas
+    if (nome) nome = nome.trim().substring(0, 100);
+    if (username) username = username.trim().toLowerCase().substring(0, 50);
+    if (email) email = email.trim().toLowerCase();
 
     if (!nome || !email || !username || !senha) {
       return res.status(400).json({ erro: 'Campos obrigatórios: nome, email, username, senha.' });
