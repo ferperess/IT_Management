@@ -8,10 +8,15 @@ function autenticar(req, res, next) {
   if (!auth) return res.status(401).json({ erro: 'Token não fornecido.' });
   const token = auth.split(' ')[1];
   try {
-    req.usuario = jwt.verify(token, SECRET);
+    const decoded = jwt.verify(token, SECRET);
+    // Adiciona verificação extra se necessário (ex: status do usuário no banco)
+    req.usuario = decoded;
     next();
-  } catch {
-    res.status(401).json({ erro: 'Token inválido.' });
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ erro: 'Sessão expirada. Faça login novamente.' });
+    }
+    res.status(401).json({ erro: 'Token inválido ou malformado.' });
   }
 }
 
