@@ -32,6 +32,7 @@ router.put('/chamados/:id', autenticar, apenasAdminOuTecnico, chamadosCtrl.atual
 
 router.get('/documentacoes', autenticar, docsCtrl.listar);
 router.get('/documentacoes/:id', autenticar, docsCtrl.buscarPorId);
+router.get('/documentacoes/:id/download', autenticar, docsCtrl.download);
 router.post('/documentacoes', autenticar, apenasAdminOuTecnico, upload.single('arquivo'), docsCtrl.criar);
 router.put('/documentacoes/:id', autenticar, apenasAdminOuTecnico, upload.single('arquivo'), docsCtrl.atualizar);
 router.delete('/documentacoes/:id', autenticar, apenasAdmin, docsCtrl.remover);
