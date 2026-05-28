@@ -78,6 +78,8 @@ model DOCUMENTACOES {
   descricao    String?
   link_externo String?
   arquivo_nome String?
+  arquivo_dados Bytes?
+  arquivo_mime  String?
   criado_em    DateTime @default(now())
 
   id_responsavel Int
