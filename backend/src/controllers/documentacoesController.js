@@ -7,10 +7,27 @@ const include = {
   chamado: { select: { id: true, titulo: true } },
 };
 
+// Seleciona todos os campos EXCETO arquivo_dados para listagem (evita trafegar binário desnecessário)
+const selectSemDados = {
+  id: true,
+  titulo: true,
+  descricao: true,
+  link_externo: true,
+  arquivo_nome: true,
+  arquivo_mime: true,
+  criado_em: true,
+  id_responsavel: true,
+  id_ativo: true,
+  id_chamado: true,
+  responsavel: { select: { id: true, nome: true } },
+  ativo: { select: { id: true, nome: true } },
+  chamado: { select: { id: true, titulo: true } },
+};
+
 async function listar_documentacoes(req, res) {
   try {
     const docs = await prisma.dOCUMENTACOES.findMany({
-      include,
+      select: selectSemDados,
       orderBy: { criado_em: 'desc' },
     });
     res.json(docs);
@@ -23,7 +40,7 @@ async function buscarPorId(req, res) {
   try {
     const doc = await prisma.dOCUMENTACOES.findUnique({
       where: { id: Number(req.params.id) },
-      include,
+      select: selectSemDados,
     });
     if (!doc) return res.status(404).json({ erro: 'Documento não encontrado.' });
     res.json(doc);
@@ -32,39 +49,65 @@ async function buscarPorId(req, res) {
   }
 }
 
+async function download(req, res) {
+  try {
+    const doc = await prisma.dOCUMENTACOES.findUnique({
+      where: { id: Number(req.params.id) },
+      select: { arquivo_nome: true, arquivo_mime: true, arquivo_dados: true },
+    });
+
+    if (!doc) return res.status(404).json({ erro: 'Documento não encontrado.' });
+    if (!doc.arquivo_dados) return res.status(404).json({ erro: 'Este documento não possui arquivo anexo.' });
+
+    res.setHeader('Content-Type', doc.arquivo_mime || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(doc.arquivo_nome)}"`);
+    res.send(doc.arquivo_dados);
+  } catch {
+    res.status(500).json({ erro: 'Erro ao baixar arquivo.' });
+  }
+}
+
 async function criar_documentacao(req, res) {
   try {
     let { titulo, descricao, link_externo, id_ativo, id_chamado } = req.body;
-    
-    // Sanitização Básica
+
     titulo = validator.escape(validator.trim(titulo || ''));
     descricao = validator.escape(validator.trim(descricao || ''));
-    
+
     if (!titulo) return res.status(400).json({ erro: 'Título obrigatório.' });
 
-    // Validação de URL
     if (link_externo && !validator.isURL(link_externo, { protocols: ['http', 'https'], require_protocol: true })) {
       return res.status(400).json({ erro: 'URL externa inválida.' });
     }
 
-    // Validação de Arquivo (MIME Type e Tamanho se houver)
+    let arquivo_nome = null;
+    let arquivo_mime = null;
+    let arquivo_dados = null;
+
     if (req.file) {
-      const allowedMimes = ['application/pdf', 'image/jpeg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      const allowedMimes = [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      ];
       if (!allowedMimes.includes(req.file.mimetype)) {
         return res.status(400).json({ erro: 'Tipo de arquivo não permitido (apenas PDF, JPG, PNG, DOC/DOCX).' });
       }
-      if (req.file.size > 5 * 1024 * 1024) { // 5MB
+      if (req.file.size > 5 * 1024 * 1024) {
         return res.status(400).json({ erro: 'Arquivo muito grande. Limite de 5MB.' });
       }
+      arquivo_nome = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+      arquivo_mime = req.file.mimetype;
+      arquivo_dados = req.file.buffer;
     }
 
-    // Valida ativo se fornecido
     if (id_ativo) {
       const ativo = await prisma.aTIVOS.findUnique({ where: { id: Number(id_ativo) } });
       if (!ativo) return res.status(400).json({ erro: 'Ativo não encontrado.' });
     }
 
-    // Valida chamado se fornecido
     if (id_chamado) {
       const chamado = await prisma.cHAMADOS.findUnique({ where: { id: Number(id_chamado) } });
       if (!chamado) return res.status(400).json({ erro: 'Chamado não encontrado.' });
@@ -75,12 +118,14 @@ async function criar_documentacao(req, res) {
         titulo,
         descricao,
         link_externo,
-        arquivo_nome: req.file ? req.file.originalname : null,
+        arquivo_nome,
+        arquivo_mime,
+        arquivo_dados,
         id_responsavel: req.usuario.id,
         id_ativo: id_ativo ? Number(id_ativo) : null,
         id_chamado: id_chamado ? Number(id_chamado) : null,
       },
-      include,
+      select: selectSemDados,
     });
     res.status(201).json(doc);
   } catch {
@@ -93,48 +138,56 @@ async function atualizar_documentacao(req, res) {
     const { id } = req.params;
     let { titulo, descricao, link_externo, id_ativo, id_chamado } = req.body;
 
-    // Sanitização Básica
     if (titulo) titulo = validator.escape(validator.trim(titulo));
     if (descricao) descricao = validator.escape(validator.trim(descricao));
 
-    // Validação de URL
     if (link_externo && !validator.isURL(link_externo, { protocols: ['http', 'https'], require_protocol: true })) {
       return res.status(400).json({ erro: 'URL externa inválida.' });
     }
 
-    // Validação de Arquivo
+    const data = { titulo, descricao, link_externo };
+
     if (req.file) {
-      const allowedMimes = ['application/pdf', 'image/jpeg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      const allowedMimes = [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      ];
       if (!allowedMimes.includes(req.file.mimetype)) {
         return res.status(400).json({ erro: 'Tipo de arquivo não permitido.' });
       }
       if (req.file.size > 5 * 1024 * 1024) {
         return res.status(400).json({ erro: 'Arquivo muito grande. Limite de 5MB.' });
       }
+      data.arquivo_nome = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+      data.arquivo_mime = req.file.mimetype;
+      data.arquivo_dados = req.file.buffer;
     }
 
-    // Valida ativo se fornecido
-    if (id_ativo) {
-      const ativo = await prisma.aTIVOS.findUnique({ where: { id: Number(id_ativo) } });
-      if (!ativo) return res.status(400).json({ erro: 'Ativo não encontrado.' });
+    if (id_ativo !== undefined) {
+      if (id_ativo) {
+        const ativo = await prisma.aTIVOS.findUnique({ where: { id: Number(id_ativo) } });
+        if (!ativo) return res.status(400).json({ erro: 'Ativo não encontrado.' });
+      }
+      data.id_ativo = id_ativo ? Number(id_ativo) : null;
     }
 
-    // Valida chamado se fornecido
-    if (id_chamado) {
-      const chamado = await prisma.cHAMADOS.findUnique({ where: { id: Number(id_chamado) } });
-      if (!chamado) return res.status(400).json({ erro: 'Chamado não encontrado.' });
+    if (id_chamado !== undefined) {
+      if (id_chamado) {
+        const chamado = await prisma.cHAMADOS.findUnique({ where: { id: Number(id_chamado) } });
+        if (!chamado) return res.status(400).json({ erro: 'Chamado não encontrado.' });
+      }
+      data.id_chamado = id_chamado ? Number(id_chamado) : null;
     }
 
-    const data = { titulo, descricao, link_externo };
-    if (req.file) data.arquivo_nome = req.file.originalname;
-    data.id_ativo = id_ativo ? Number(id_ativo) : null;
-    data.id_chamado = id_chamado ? Number(id_chamado) : null;
     Object.keys(data).forEach(k => data[k] === undefined && delete data[k]);
 
     const doc = await prisma.dOCUMENTACOES.update({
       where: { id: Number(id) },
       data,
-      include,
+      select: selectSemDados,
     });
     res.json(doc);
   } catch {
@@ -154,6 +207,7 @@ async function remover_documentacao(req, res) {
 module.exports = {
   listar: listar_documentacoes,
   buscarPorId,
+  download,
   criar: criar_documentacao,
   atualizar: atualizar_documentacao,
   remover: remover_documentacao,
