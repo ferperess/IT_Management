@@ -20,18 +20,19 @@ export default function Documentacao() {
   const [mostrarForm, setMostrarForm] = useState(false);
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
+  const [baixando, setBaixando] = useState(null);
 
   usePageTitle('Documentação');
 
   async function carregar() {
-    const [d, a, c] = await Promise.all([
+    const [d, a, c] = await Promise.allSettled([
       api.get('/documentacoes'),
       api.get('/ativos'),
       api.get('/chamados'),
     ]);
-    setDocs(d.data);
-    setAtivos(a.data);
-    setChamados(c.data);
+    if (d.status === 'fulfilled') setDocs(d.value.data);
+    if (a.status === 'fulfilled') setAtivos(a.value.data);
+    if (c.status === 'fulfilled') setChamados(c.value.data);
   }
 
   useEffect(() => { carregar(); }, []);
@@ -73,16 +74,35 @@ export default function Documentacao() {
       if (arquivo) fd.append('arquivo', arquivo);
 
       if (editandoId) {
-        await api.put(`/documentacoes/${editandoId}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        await api.put(`/documentacoes/${editandoId}`, fd);
         setSucesso('Documento atualizado!');
       } else {
-        await api.post('/documentacoes', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        await api.post(`/documentacoes`, fd);
         setSucesso('Documento cadastrado!');
       }
       setForm(formVazio); setArquivo(null); setEditandoId(null); setMostrarForm(false);
       carregar();
     } catch (err) {
       setErro(err.response?.data?.erro || 'Erro ao salvar documento.');
+    }
+  }
+
+  async function baixarArquivo(doc) {
+    setBaixando(doc.id);
+    try {
+      const resp = await api.get(`/documentacoes/${doc.id}/download`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([resp.data], { type: resp.headers['content-type'] }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', doc.arquivo_nome || 'arquivo');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      alert('Erro ao baixar o arquivo.');
+    } finally {
+      setBaixando(null);
     }
   }
 
@@ -123,16 +143,27 @@ export default function Documentacao() {
                   <td>{d.chamado ? `#${d.chamado.id} - ${d.chamado.titulo}` : <span style={{ color: '#bbb' }}>—</span>}</td>
                   <td>{d.responsavel?.nome}</td>
                   <td>{fmtData(d.criado_em)}</td>
-                  <td className="actions-bar">
-                    <button className="btn btn-secondary btn-sm" onClick={() => setLendoDoc(d)}>Ler</button>
-                    {podeEditar && (
-                      <>
-                        <button className="btn btn-secondary btn-sm" onClick={() => iniciarEdicao(d)}>Editar</button>
-                        {usuario?.perfil === 'ADMIN' && (
-                          <button className="btn btn-danger btn-sm" onClick={() => remover(d.id)}>Remover</button>
-                        )}
-                      </>
-                    )}
+                  <td>
+                    <div className="actions-bar">
+                      <button className="btn btn-secondary btn-sm" onClick={() => setLendoDoc(d)}>Ler</button>
+                      {d.arquivo_nome && (
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => baixarArquivo(d)}
+                          disabled={baixando === d.id}
+                        >
+                          {baixando === d.id ? '...' : 'Baixar'}
+                        </button>
+                      )}
+                      {podeEditar && (
+                        <>
+                          <button className="btn btn-secondary btn-sm" onClick={() => iniciarEdicao(d)}>Editar</button>
+                          {usuario?.perfil === 'ADMIN' && (
+                            <button className="btn btn-danger btn-sm" onClick={() => remover(d.id)}>Remover</button>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -170,7 +201,17 @@ export default function Documentacao() {
               </a></p>
             )}
             {lendoDoc.arquivo_nome && (
-              <p style={{ marginTop: 10 }}>📎 Arquivo: {lendoDoc.arquivo_nome}</p>
+              <p style={{ marginTop: 10 }}>
+                📎 {lendoDoc.arquivo_nome}{' '}
+                <button
+                  className="btn btn-secondary btn-sm"
+                  style={{ marginLeft: 8 }}
+                  onClick={() => baixarArquivo(lendoDoc)}
+                  disabled={baixando === lendoDoc.id}
+                >
+                  {baixando === lendoDoc.id ? 'Baixando...' : 'Baixar'}
+                </button>
+              </p>
             )}
           </div>
         )}
@@ -217,8 +258,9 @@ export default function Documentacao() {
                   <input type="url" className="form-control" placeholder="https://..." value={form.link_externo} onChange={set('link_externo')} />
                 </div>
                 <div className="form-group">
-                  <label>Arquivo (PDF, DOCX)</label>
+                  <label>Arquivo (PDF, DOCX, JPG, PNG)</label>
                   <input type="file" className="form-control" style={{ padding: 7 }} onChange={e => setArquivo(e.target.files[0])} />
+                  {editandoId && <small style={{ color: '#999' }}>Deixe em branco para manter o arquivo atual.</small>}
                 </div>
               </div>
               <div style={{ textAlign: 'right', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>

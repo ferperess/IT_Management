@@ -66,15 +66,17 @@ export default function Usuarios() {
                       {u.status}
                     </span>
                   </td>
-                  <td className="actions-bar">
-                    <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/usuarios/${u.id}`)}>
-                      Editar
-                    </button>
-                    {u.status === 'ATIVO' && (
-                      <button className="btn btn-danger btn-sm" onClick={() => inativar(u.id)}>
-                        Inativar
+                  <td>
+                    <div className="actions-bar">
+                      <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/usuarios/${u.id}`)}>
+                        Editar
                       </button>
-                    )}
+                      {u.status === 'ATIVO' && (
+                        <button className="btn btn-danger btn-sm" onClick={() => inativar(u.id)}>
+                          Inativar
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

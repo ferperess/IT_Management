@@ -117,7 +117,7 @@ main { padding: 30px; max-width: 1200px; margin: 0 auto; }
 
 /* TABELA */
 .cps-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-.cps-table th, .cps-table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--cps-borda); font-size: 14px; }
+.cps-table th, .cps-table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--cps-borda); font-size: 14px; vertical-align: middle; }
 .cps-table th { background-color: var(--neu-bg); color: var(--cps-cinza-escuro); font-weight: bold; }
 .cps-table tr:hover td { background-color: rgba(255,255,255,0.5); }
 
@@ -275,7 +275,7 @@ hr.divider { margin: 15px 0; border: 0; border-top: 1px solid var(--cps-borda); 
 .historico-list { list-style: none; margin-top: 10px; }
 .historico-list li { font-size: 13px; color: var(--cps-cinza-escuro); padding: 6px 0; border-bottom: 1px solid var(--cps-borda); }
 
-.actions-bar { display: flex; gap: 8px; }
+.actions-bar { display: flex; gap: 8px; align-items: center; }
 
 /* Gestão técnica background */
 div[style*="background: #f9f9f9"] {

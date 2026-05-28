@@ -104,11 +104,13 @@ export default function Ativos() {
                   <td>{a.localizacao}</td>
                   <td><span className={`badge badge-${badgeMap[a.status]}`}>{statusLabel[a.status]}</span></td>
                   {podeEditar && (
-                    <td className="actions-bar">
-                      <button className="btn btn-secondary btn-sm" onClick={() => iniciarEdicao(a)}>Editar</button>
-                      {usuario?.perfil === 'ADMIN' && (
-                        <button className="btn btn-danger btn-sm" onClick={() => remover(a.id)}>Remover</button>
-                      )}
+                    <td>
+                      <div className="actions-bar">
+                        <button className="btn btn-secondary btn-sm" onClick={() => iniciarEdicao(a)}>Editar</button>
+                        {usuario?.perfil === 'ADMIN' && (
+                          <button className="btn btn-danger btn-sm" onClick={() => remover(a.id)}>Remover</button>
+                        )}
+                      </div>
                     </td>
                   )}
                 </tr>
