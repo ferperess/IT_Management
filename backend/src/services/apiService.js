@@ -21,12 +21,16 @@ async function classificarChamado(titulo, descricao) {
   const descricaoSegura = sanitizar(descricao);
 
   const api_response = await client.messages.create({
-    model: 'anthropic/claude-haiku-4-5',
-    max_tokens: 20,
+    model: 'anthropic/claude-3.5-haiku',
+    max_tokens: 150,
     messages: [{
       role: 'user',
       content: `Você é um classificador de chamados de TI. Analise o título e a descrição e responda APENAS com JSON no formato {"prioridade":"X","categoria":"Y"} onde:
-- prioridade: BAIXA, MEDIA, ALTA ou CRITICA
+- prioridade: BAIXA, MEDIA, ALTA ou CRITICA. Utilize os critérios abaixo:
+    - BAIXA: não há impacto imediato na operação (ex: item de reserva, melhoria, solicitação preventiva)
+    - MEDIA: impacto parcial ou iminente, mas com contorno possível
+    - ALTA: usuário ou setor sem conseguir trabalhar
+    - CRITICA: sistema crítico fora do ar, múltiplos usuários afetados
 - categoria: HARDWARE, SOFTWARE, REDE, ACESSO, IMPRESSORA, AUDIOVISUAL ou OUTRO
 
 Título: ${tituloSeguro}
