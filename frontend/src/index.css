@@ -1,6 +1,6 @@
 /* --- ESTILOS GLOBAIS E IDENTIDADE VISUAL --- */
 :root {
-    --cps-vermelho: rgb(178, 0, 0);
+    --cps-vermelho: #CC0000;
     --cps-preto: rgb(0, 0, 0);
     --cps-verde: rgb(102, 255, 102);
     --cps-cinza-escuro: #666666;
