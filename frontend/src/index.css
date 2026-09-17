@@ -310,3 +310,100 @@ div[style*="background: #f9f9f9"] {
                 inset -3px -3px 8px var(--neu-sombra-clara);
     border: none !important;
 }
+/* Chamados: neumorfismo apenas nas superfícies; controles com contraste explícito. */
+.chamados-page { --cps-vermelho: #cc0000; max-width: 1500px; padding: 32px; color: #17212f; line-height: 1.5; }
+.chamados-page [hidden] { display: none !important; }
+.chamados-page .ch-heading, .chamados-page .ch-toolbar, .chamados-page .ch-results, .chamados-page .ch-actions, .chamados-page .ch-ticket-top, .chamados-page .ch-ticket-footer, .chamados-page .ch-column-heading, .chamados-page .ch-drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.chamados-page .ch-heading { margin-bottom: 26px; flex-wrap: wrap; }
+.chamados-page h1 { font-size: 30px; line-height: 1.2; margin: 5px 0 8px; }
+.chamados-page h2 { font-size: 20px; }
+.chamados-page h3 { font-size: 16px; }
+.chamados-page .ch-eyebrow { color: #9e0000; font-size: 11px; letter-spacing: .1em; font-weight: bold; }
+.chamados-page .ch-muted { color: #526071; font-size: 14px; }
+.chamados-page .card-box { box-shadow: 5px 5px 14px #d5dbe3, -5px -5px 14px #fff; border: 1px solid #e3e7ee; }
+.chamados-page .btn { min-height: 42px; box-shadow: none; transform: none; line-height: 1.4; }
+.chamados-page .btn-primary { background: #cc0000; color: #fff; border: 1px solid #cc0000; }
+.chamados-page .btn-primary:hover { background: #a30000; }
+.chamados-page .btn-secondary { background: #fff; color: #293647; border: 1px solid #7d8998; }
+.chamados-page .btn-secondary:hover { background: #e9edf3; }
+.chamados-page button:disabled { opacity: .65; cursor: wait; }
+.chamados-page :is(button, input, select, textarea, summary, [tabindex]):focus-visible { outline: 3px solid #155bb5; outline-offset: 3px; }
+.chamados-page .form-control { background-color: #fff; border: 1px solid #788597; box-shadow: none; min-height: 44px; color: #17212f; font-size: 14px; }
+.chamados-page .form-control:focus { box-shadow: none; }
+.chamados-page .form-control::placeholder { color: #596779; opacity: 1; }
+.chamados-page .form-group label { color: #344154; font-size: 13px; }
+.chamados-page textarea { resize: vertical; }
+.chamados-page fieldset { border: 0; min-width: 0; }
+.chamados-page .ch-create > p { margin: 8px 0 20px; }
+.chamados-page .ch-actions { justify-content: flex-end; flex-wrap: wrap; }
+.chamados-page .ch-toolbar { margin-bottom: 24px; flex-wrap: wrap; }
+.chamados-page .ch-switch { display: flex; gap: 6px; }
+.chamados-page .ch-switch [aria-pressed="true"] { color: #fff; background: #344154; border-color: #344154; }
+.chamados-page .ch-filters { display: grid; grid-template-columns: 2fr repeat(3, 1fr); gap: 14px; }
+.chamados-page .ch-extra { grid-template-columns: 2fr 1fr 1fr; padding-top: 16px; }
+.chamados-page .ch-more summary { cursor: pointer; color: #344154; width: fit-content; padding: 8px 0; font-size: 13px; }
+.chamados-page .ch-results { border-top: 1px solid #cdd5df; padding-top: 18px; margin: 14px 0 20px; font-size: 13px; color: #526071; }
+.chamados-page .ch-link { border: 0; background: transparent; padding: 8px 2px; color: #9e0000; font-size: 13px; font-weight: bold; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.chamados-page .ch-board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.chamados-page .ch-column { background: #e8edf3; border-radius: 12px; min-width: 0; border: 1px solid #cdd5df; border-top: 4px solid #956300; }
+.chamados-page .ch-column-EM_ANDAMENTO { border-top-color: #215c9c; }
+.chamados-page .ch-column-CONCLUIDO { border-top-color: #267245; }
+.chamados-page .ch-column-CANCELADO { border-top-color: #697586; }
+.chamados-page .ch-column-heading { padding: 15px 12px; gap: 8px; }
+.chamados-page .ch-column-heading h2 { font-size: 14px; }
+.chamados-page .ch-column-heading > span { background: #fff; border-radius: 20px; min-width: 26px; text-align: center; font-size: 12px; padding: 2px 6px; }
+.chamados-page .ch-cards { padding: 0 10px 10px; display: grid; gap: 12px; }
+.chamados-page .ch-ticket { background: #fff; border: 1px solid #ccd4df; border-radius: 8px; padding: 14px; overflow-wrap: anywhere; }
+.chamados-page .ch-ticket-top { font-size: 12px; color: #526071; gap: 6px; }
+.chamados-page .ch-ticket h3 { margin: 12px 0 5px; }
+.chamados-page .ch-title-link { font: inherit; font-weight: bold; text-align: left; color: #17212f; background: none; border: 0; padding: 4px 0; cursor: pointer; overflow-wrap: anywhere; }
+.chamados-page .ch-title-link:hover { color: #a30000; text-decoration: underline; }
+.chamados-page .ch-ticket dl { margin: 14px 0; font-size: 12px; }
+.chamados-page dt { color: #526071; font-size: 12px; }
+.chamados-page dd { margin: 0 0 8px; }
+.chamados-page .ch-ticket-footer { border-top: 1px solid #e0e5ec; padding-top: 8px; flex-wrap: wrap; gap: 2px; font-size: 11px; color: #526071; }
+.chamados-page .ch-column-empty { color: #526071; font-size: 13px; padding: 20px 5px; }
+.chamados-page .ch-badge { display: inline-block; border: 1px solid currentColor; border-radius: 20px; padding: 3px 9px; font-size: 11px; line-height: 1.4; font-weight: bold; white-space: nowrap; }
+.chamados-page :is(.ch-ABERTO, .ch-ALTA) { color: #785000; background: #fff5d6; }
+.chamados-page :is(.ch-EM_ANDAMENTO, .ch-MEDIA) { color: #1c548d; background: #edf5ff; }
+.chamados-page :is(.ch-CONCLUIDO, .ch-BAIXA) { color: #23643b; background: #ecf8ef; }
+.chamados-page .ch-CANCELADO { color: #4b5563; background: #f0f2f5; }
+.chamados-page .ch-CRITICA { color: #a31414; background: #fff0f0; }
+.chamados-page .ch-table-wrap { overflow-x: auto; }
+.chamados-page .cps-table { margin-top: 0; min-width: 740px; }
+.chamados-page .cps-table th { color: #344154; font-size: 12px; }
+.chamados-page .cps-table td { font-size: 13px; vertical-align: top; }
+.chamados-page .cps-table td:first-child { width: 35%; }
+.chamados-page .ch-cell-sub { display: block; font-size: 12px; color: #526071; margin-top: 4px; }
+.chamados-page .ch-empty { padding: 50px 16px; text-align: center; color: #526071; }
+.chamados-page .ch-empty h2 { font-size: 18px; color: #344154; margin-bottom: 8px; }
+.chamados-page .ch-notice { background: #fff5d6; color: #684600; border: 1px solid #a07822; border-radius: 8px; padding: 12px; margin-bottom: 20px; font-size: 14px; }
+.chamados-page .ch-drawer { margin: 0 0 0 auto; width: min(600px, 100%); height: 100dvh; max-height: 100dvh; max-width: 100%; border: 0; border-left: 1px solid #cdd5df; padding: 24px; color: #17212f; background: #fff; overflow-y: auto; }
+.chamados-page .ch-drawer::backdrop { background: rgb(18 29 45 / 50%); }
+.chamados-page .ch-drawer-head { margin-bottom: 20px; }
+.chamados-page .ch-detail-title { font-size: 22px; overflow-wrap: anywhere; }
+.chamados-page .ch-detail-badges { display: flex; gap: 8px; margin: 14px 0 20px; }
+.chamados-page .ch-detail-meta { display: grid; grid-template-columns: 110px 1fr; gap: 8px 14px; font-size: 14px; margin-bottom: 24px; overflow-wrap: anywhere; }
+.chamados-page .ch-detail-meta dd { margin: 0; }
+.chamados-page .ch-description { white-space: pre-wrap; overflow-wrap: anywhere; margin: 8px 0 24px; font-size: 14px; }
+.chamados-page .ch-management { padding: 20px; background: #f2f5fa; border: 1px solid #d8dfe8; border-radius: 12px; margin-bottom: 24px; }
+.chamados-page .ch-management h3 { margin-bottom: 16px; }
+.chamados-page .ch-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+.chamados-page .ch-history { list-style: none; margin-top: 14px; padding-left: 14px; border-left: 2px solid #d3dbe6; }
+.chamados-page .ch-history li { padding: 0 0 20px; font-size: 14px; overflow-wrap: anywhere; }
+.chamados-page .ch-history p { white-space: pre-wrap; }
+.chamados-page .ch-history span { display: block; font-size: 12px; color: #526071; margin-top: 5px; }
+@media (max-width: 1150px) { .chamados-page .ch-board { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) {
+  .chamados-page { padding: 20px 14px; }
+  .chamados-page .card-box { padding: 16px; }
+  .chamados-page .ch-filters, .chamados-page .ch-extra { grid-template-columns: 1fr 1fr; }
+  .chamados-page .ch-drawer { padding: 20px; }
+}
+@media (max-width: 480px) {
+  .chamados-page .ch-board, .chamados-page .ch-filters, .chamados-page .ch-extra, .chamados-page .ch-form-grid { grid-template-columns: 1fr; }
+  .chamados-page .ch-actions { align-items: stretch; flex-direction: column; }
+  .chamados-page .ch-detail-meta { grid-template-columns: 1fr; gap: 2px; }
+  .chamados-page .ch-detail-meta dd { margin-bottom: 10px; }
+  .chamados-page .ch-management { padding: 14px; }
+}
