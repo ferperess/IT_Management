@@ -66,12 +66,14 @@ async function criar_chamado(req, res) {
 
     let prioridade = 'MEDIA';
     let categoria = 'OUTRO';
+    let aviso = null;
     try {
       const classificacao = await classificarChamado(titulo, descricao);
       prioridade = classificacao.prioridade;
       categoria = classificacao.categoria;
     } catch (iaErr) {
-      console.error('Erro na classificação por IA, usando valores padrão:', iaErr.message);
+      aviso = 'Classificação automática indisponível. Prioridade Média e categoria Outro são provisórias e precisam de revisão pela equipe técnica.';
+      console.warn('[classificacao] Revisão manual necessária:', iaErr.code || 'ERRO_INTERNO');
     }
 
     const chamado = await prisma.cHAMADOS.create({
@@ -79,16 +81,22 @@ async function criar_chamado(req, res) {
       include,
     });
 
-    await prisma.hISTORICO_CHAMADOS.create({
+    const historicoAbertura = await prisma.hISTORICO_CHAMADOS.create({
       data: {
         id_chamado: chamado.id,
         id_usuario: id_solicitante,
-        comentario: `Chamado aberto por ${solicitante.nome}.`,
+        comentario: `Chamado aberto por ${solicitante.nome}.${aviso ? ` ${aviso}` : ''}`,
         status_novo: 'ABERTO',
       },
+      include: { usuario: { select: { nome: true } } },
     });
 
-    res.status(201).json(chamado);
+    // O aviso também fica no histórico persistido, disponível após recarregar.
+    res.status(201).json({
+      ...chamado,
+      historico: [...(chamado.historico || []), historicoAbertura],
+      aviso,
+    });
   } catch {
     res.status(500).json({ erro: 'Erro ao criar chamado.' });
   }
@@ -101,6 +109,9 @@ async function atualizar_chamado(req, res) {
 
     const chamado = await prisma.cHAMADOS.findUnique({ where: { id: Number(id) } });
     if (!chamado) return res.status(404).json({ erro: 'Chamado não encontrado.' });
+    if (chamado.status === 'CANCELADO') {
+      return res.status(409).json({ erro: 'Chamados cancelados são somente leitura e não podem ser alterados.' });
+    }
 
     if (status) {
       if (!STATUS_CHAMADO_VALIDOS.includes(status)) {
@@ -138,21 +149,32 @@ async function atualizar_chamado(req, res) {
     if (categoria) data.categoria = categoria;
     if (id_tecnico !== undefined) data.id_tecnico = id_tecnico ? Number(id_tecnico) : null;
 
-    const updated = await prisma.cHAMADOS.update({ where: { id: Number(id) }, data, include });
-
-    if (comentario || status) {
-      await prisma.hISTORICO_CHAMADOS.create({
-        data: {
-          id_chamado: Number(id),
-          id_usuario: req.usuario.id,
-          comentario: comentario || `Status alterado para ${status}.`,
-          status_novo: status || null,
-        },
+    // A condição é conferida também na escrita: protege contra cancelamento
+    // em outra sessão entre a leitura inicial e o salvamento. O histórico e
+    // a atualização são confirmados juntos, sob o mesmo bloqueio da linha.
+    const updated = await prisma.$transaction(async tx => {
+      await tx.cHAMADOS.update({
+        where: { id: Number(id), status: chamado.status },
+        data: { ...data, atualizado_em: new Date() },
       });
-    }
+      if (comentario || status) {
+        await tx.hISTORICO_CHAMADOS.create({
+          data: {
+            id_chamado: Number(id),
+            id_usuario: req.usuario.id,
+            comentario: comentario || `Status alterado para ${status}.`,
+            status_novo: status || null,
+          },
+        });
+      }
+      return tx.cHAMADOS.findUnique({ where: { id: Number(id) }, include });
+    });
 
     res.json(updated);
-  } catch {
+  } catch (erro) {
+    if (erro.code === 'P2025') {
+      return res.status(409).json({ erro: 'O chamado foi alterado em outra sessão. Reabra os detalhes antes de tentar novamente.' });
+    }
     res.status(500).json({ erro: 'Erro ao atualizar chamado.' });
   }
 }
