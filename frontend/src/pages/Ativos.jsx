@@ -36,7 +36,7 @@ export default function Ativos() {
   function iniciarEdicao(a) {
     setEditandoId(a.id);
     setForm({
-      nome: a.nome, tipo: a.tipo, localizacao: a.localizacao,
+      nome: a.nome, tipo: a.tipo, localizacao: a.localizacao || '',
       data_aquisicao: a.data_aquisicao ? a.data_aquisicao.slice(0, 10) : '',
       status: a.status,
     });

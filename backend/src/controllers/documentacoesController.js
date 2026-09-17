@@ -1,3 +1,4 @@
+const { toId } = require('../utils/ids');
 const prisma = require('../prisma');
 const validator = require('validator');
 
@@ -31,7 +32,8 @@ async function listar_documentacoes(req, res) {
       orderBy: { criado_em: 'desc' },
     });
     res.json(docs);
-  } catch {
+  } catch (err) {
+    if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
     res.status(500).json({ erro: 'Erro ao listar documentações.' });
   }
 }
@@ -39,12 +41,13 @@ async function listar_documentacoes(req, res) {
 async function buscarPorId(req, res) {
   try {
     const doc = await prisma.dOCUMENTACOES.findUnique({
-      where: { id: Number(req.params.id) },
+      where: { id: toId(req.params.id) },
       select: selectSemDados,
     });
     if (!doc) return res.status(404).json({ erro: 'Documento não encontrado.' });
     res.json(doc);
-  } catch {
+  } catch (err) {
+    if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
     res.status(500).json({ erro: 'Erro ao buscar documento.' });
   }
 }
@@ -52,7 +55,7 @@ async function buscarPorId(req, res) {
 async function download(req, res) {
   try {
     const doc = await prisma.dOCUMENTACOES.findUnique({
-      where: { id: Number(req.params.id) },
+      where: { id: toId(req.params.id) },
       select: { arquivo_nome: true, arquivo_mime: true, arquivo_dados: true },
     });
 
@@ -62,7 +65,8 @@ async function download(req, res) {
     res.setHeader('Content-Type', doc.arquivo_mime || 'application/octet-stream');
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(doc.arquivo_nome)}"`);
     res.send(doc.arquivo_dados);
-  } catch {
+  } catch (err) {
+    if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
     res.status(500).json({ erro: 'Erro ao baixar arquivo.' });
   }
 }
@@ -104,12 +108,12 @@ async function criar_documentacao(req, res) {
     }
 
     if (id_ativo) {
-      const ativo = await prisma.aTIVOS.findUnique({ where: { id: Number(id_ativo) } });
+      const ativo = await prisma.aTIVOS.findUnique({ where: { id: toId(id_ativo) } });
       if (!ativo) return res.status(400).json({ erro: 'Ativo não encontrado.' });
     }
 
     if (id_chamado) {
-      const chamado = await prisma.cHAMADOS.findUnique({ where: { id: Number(id_chamado) } });
+      const chamado = await prisma.cHAMADOS.findUnique({ where: { id: toId(id_chamado) } });
       if (!chamado) return res.status(400).json({ erro: 'Chamado não encontrado.' });
     }
 
@@ -122,13 +126,14 @@ async function criar_documentacao(req, res) {
         arquivo_mime,
         arquivo_dados,
         id_responsavel: req.usuario.id,
-        id_ativo: id_ativo ? Number(id_ativo) : null,
-        id_chamado: id_chamado ? Number(id_chamado) : null,
+        id_ativo: id_ativo ? toId(id_ativo) : null,
+        id_chamado: id_chamado ? toId(id_chamado) : null,
       },
       select: selectSemDados,
     });
     res.status(201).json(doc);
-  } catch {
+  } catch (err) {
+    if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
     res.status(500).json({ erro: 'Erro ao criar documento.' });
   }
 }
@@ -168,38 +173,40 @@ async function atualizar_documentacao(req, res) {
 
     if (id_ativo !== undefined) {
       if (id_ativo) {
-        const ativo = await prisma.aTIVOS.findUnique({ where: { id: Number(id_ativo) } });
+        const ativo = await prisma.aTIVOS.findUnique({ where: { id: toId(id_ativo) } });
         if (!ativo) return res.status(400).json({ erro: 'Ativo não encontrado.' });
       }
-      data.id_ativo = id_ativo ? Number(id_ativo) : null;
+      data.id_ativo = id_ativo ? toId(id_ativo) : null;
     }
 
     if (id_chamado !== undefined) {
       if (id_chamado) {
-        const chamado = await prisma.cHAMADOS.findUnique({ where: { id: Number(id_chamado) } });
+        const chamado = await prisma.cHAMADOS.findUnique({ where: { id: toId(id_chamado) } });
         if (!chamado) return res.status(400).json({ erro: 'Chamado não encontrado.' });
       }
-      data.id_chamado = id_chamado ? Number(id_chamado) : null;
+      data.id_chamado = id_chamado ? toId(id_chamado) : null;
     }
 
     Object.keys(data).forEach(k => data[k] === undefined && delete data[k]);
 
     const doc = await prisma.dOCUMENTACOES.update({
-      where: { id: Number(id) },
+      where: { id: toId(id) },
       data,
       select: selectSemDados,
     });
     res.json(doc);
-  } catch {
+  } catch (err) {
+    if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
     res.status(404).json({ erro: 'Documento não encontrado.' });
   }
 }
 
 async function remover_documentacao(req, res) {
   try {
-    await prisma.dOCUMENTACOES.delete({ where: { id: Number(req.params.id) } });
+    await prisma.dOCUMENTACOES.delete({ where: { id: toId(req.params.id) } });
     res.json({ mensagem: 'Documento removido.' });
-  } catch {
+  } catch (err) {
+    if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
     res.status(404).json({ erro: 'Documento não encontrado.' });
   }
 }

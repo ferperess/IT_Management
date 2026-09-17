@@ -17,12 +17,12 @@ async function login(req, res) {
 
     const SECRET = process.env.JWT_SECRET;
     const token = jwt.sign(
-      { id: usuario.id, nome: usuario.nome, email: usuario.email, perfil: usuario.perfil },
+      { id: usuario.id.toString(), nome: usuario.nome, email: usuario.email, perfil: usuario.perfil },
       SECRET,
       { expiresIn: '8h' }
     );
 
-    res.json({ token, usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, perfil: usuario.perfil } });
+    res.json({ token, usuario: { id: usuario.id.toString(), nome: usuario.nome, email: usuario.email, perfil: usuario.perfil } });
   } catch (err) {
     console.error('Erro no login:', err.message);
     res.status(500).json({ erro: 'Erro interno ao realizar login.' });

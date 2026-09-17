@@ -1,3 +1,4 @@
+const { toId } = require('../utils/ids');
 const bcrypt = require('bcryptjs');
 const prisma = require('../prisma');
 const {
@@ -23,7 +24,8 @@ async function listar_usuarios(req, res) {
       orderBy: { nome: 'asc' },
     });
     res.json(usuarios);
-  } catch {
+  } catch (err) {
+    if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
     res.status(500).json({ erro: 'Erro ao listar usuários.' });
   }
 }
@@ -31,12 +33,13 @@ async function listar_usuarios(req, res) {
 async function buscarPorId(req, res) {
   try {
     const u = await prisma.uSUARIOS.findUnique({
-      where: { id: Number(req.params.id) },
+      where: { id: toId(req.params.id) },
       select: { id: true, nome: true, email: true, username: true, perfil: true, status: true },
     });
     if (!u) return res.status(404).json({ erro: 'Usuário não encontrado.' });
     res.json(u);
-  } catch {
+  } catch (err) {
+    if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
     res.status(500).json({ erro: 'Erro ao buscar usuário.' });
   }
 }
@@ -81,6 +84,7 @@ async function criar_usuario(req, res) {
     });
     res.status(201).json(u);
   } catch (e) {
+    if (e.code === 'INVALID_ID') return res.status(400).json({ erro: e.message });
     if (e.code === 'P2002') return res.status(409).json({ erro: 'Email ou username já em uso.' });
     res.status(500).json({ erro: 'Erro ao criar usuário.' });
   }
@@ -116,12 +120,13 @@ async function atualizar_usuario(req, res) {
     Object.keys(data).forEach(k => data[k] === undefined && delete data[k]);
 
     const u = await prisma.uSUARIOS.update({
-      where: { id: Number(id) },
+      where: { id: toId(id) },
       data,
       select: { id: true, nome: true, email: true, username: true, perfil: true, status: true },
     });
     res.json(u);
   } catch (e) {
+    if (e.code === 'INVALID_ID') return res.status(400).json({ erro: e.message });
     if (e.code === 'P2025') return res.status(404).json({ erro: 'Usuário não encontrado.' });
     if (e.code === 'P2002') return res.status(409).json({ erro: 'Email ou username já em uso.' });
     res.status(500).json({ erro: 'Erro ao atualizar usuário.' });
@@ -130,7 +135,7 @@ async function atualizar_usuario(req, res) {
 
 async function inativar_usuario(req, res) {
   try {
-    const idAlvo = Number(req.params.id);
+    const idAlvo = toId(req.params.id);
 
     // Admin não pode inativar a si mesmo
     if (req.usuario.id === idAlvo) {
@@ -139,7 +144,8 @@ async function inativar_usuario(req, res) {
 
     await prisma.uSUARIOS.update({ where: { id: idAlvo }, data: { status: 'INATIVO' } });
     res.json({ mensagem: 'Usuário inativado.' });
-  } catch {
+  } catch (err) {
+    if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
     res.status(404).json({ erro: 'Usuário não encontrado.' });
   }
 }

@@ -1,3 +1,4 @@
+const { toId } = require('../utils/ids');
 const prisma = require('../prisma');
 const { classificarChamado } = require('../services/apiService');
 const {
@@ -20,20 +21,22 @@ async function listar_chamados(req, res) {
     const where = perfil === 'COMUM' ? { id_solicitante: id } : {};
     const chamados = await prisma.cHAMADOS.findMany({ where, include, orderBy: { criado_em: 'desc' } });
     res.json(chamados);
-  } catch {
+  } catch (err) {
+    if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
     res.status(500).json({ erro: 'Erro ao listar chamados.' });
   }
 }
 
 async function buscarPorId(req, res) {
   try {
-    const c = await prisma.cHAMADOS.findUnique({ where: { id: Number(req.params.id) }, include });
+    const c = await prisma.cHAMADOS.findUnique({ where: { id: toId(req.params.id) }, include });
     if (!c) return res.status(404).json({ erro: 'Chamado não encontrado.' });
     if (req.usuario.perfil === 'COMUM' && c.id_solicitante !== req.usuario.id) {
       return res.status(403).json({ erro: 'Acesso negado.' });
     }
     res.json(c);
-  } catch {
+  } catch (err) {
+    if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
     res.status(500).json({ erro: 'Erro ao buscar chamado.' });
   }
 }
@@ -54,7 +57,7 @@ async function criar_chamado(req, res) {
     }
 
     if (id_ativo) {
-      const ativo = await prisma.aTIVOS.findUnique({ where: { id: Number(id_ativo) } });
+      const ativo = await prisma.aTIVOS.findUnique({ where: { id: toId(id_ativo) } });
       if (!ativo) return res.status(400).json({ erro: 'Ativo não encontrado.' });
       if (ativo.status === 'MANUTENCAO') {
         return res.status(400).json({ erro: 'O ativo selecionado está em manutenção e não pode ser vinculado a um novo chamado.' });
@@ -77,7 +80,7 @@ async function criar_chamado(req, res) {
     }
 
     const chamado = await prisma.cHAMADOS.create({
-      data: { titulo, descricao, prioridade, categoria, id_solicitante, id_ativo: id_ativo ? Number(id_ativo) : null },
+      data: { titulo, descricao, prioridade, categoria, id_solicitante, id_ativo: id_ativo ? toId(id_ativo) : null },
       include,
     });
 
@@ -97,7 +100,8 @@ async function criar_chamado(req, res) {
       historico: [...(chamado.historico || []), historicoAbertura],
       aviso,
     });
-  } catch {
+  } catch (err) {
+    if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
     res.status(500).json({ erro: 'Erro ao criar chamado.' });
   }
 }
@@ -107,7 +111,7 @@ async function atualizar_chamado(req, res) {
     const { id } = req.params;
     const { status, prioridade, categoria, id_tecnico, comentario } = req.body;
 
-    const chamado = await prisma.cHAMADOS.findUnique({ where: { id: Number(id) } });
+    const chamado = await prisma.cHAMADOS.findUnique({ where: { id: toId(id) } });
     if (!chamado) return res.status(404).json({ erro: 'Chamado não encontrado.' });
     if (chamado.status === 'CANCELADO') {
       return res.status(409).json({ erro: 'Chamados cancelados são somente leitura e não podem ser alterados.' });
@@ -133,7 +137,7 @@ async function atualizar_chamado(req, res) {
     }
 
     if (id_tecnico) {
-      const tecnico = await prisma.uSUARIOS.findUnique({ where: { id: Number(id_tecnico) } });
+      const tecnico = await prisma.uSUARIOS.findUnique({ where: { id: toId(id_tecnico) } });
       if (!tecnico) return res.status(400).json({ erro: 'Técnico não encontrado.' });
       if (!['TECNICO', 'ADMIN'].includes(tecnico.perfil)) {
         return res.status(400).json({ erro: 'O usuário selecionado não possui perfil de Técnico ou Administrador.' });
@@ -147,31 +151,32 @@ async function atualizar_chamado(req, res) {
     if (status) data.status = status;
     if (prioridade) data.prioridade = prioridade;
     if (categoria) data.categoria = categoria;
-    if (id_tecnico !== undefined) data.id_tecnico = id_tecnico ? Number(id_tecnico) : null;
+    if (id_tecnico !== undefined) data.id_tecnico = id_tecnico ? toId(id_tecnico) : null;
 
     // A condição é conferida também na escrita: protege contra cancelamento
     // em outra sessão entre a leitura inicial e o salvamento. O histórico e
     // a atualização são confirmados juntos, sob o mesmo bloqueio da linha.
     const updated = await prisma.$transaction(async tx => {
       await tx.cHAMADOS.update({
-        where: { id: Number(id), status: chamado.status },
+        where: { id: toId(id), status: chamado.status },
         data: { ...data, atualizado_em: new Date() },
       });
       if (comentario || status) {
         await tx.hISTORICO_CHAMADOS.create({
           data: {
-            id_chamado: Number(id),
+            id_chamado: toId(id),
             id_usuario: req.usuario.id,
             comentario: comentario || `Status alterado para ${status}.`,
             status_novo: status || null,
           },
         });
       }
-      return tx.cHAMADOS.findUnique({ where: { id: Number(id) }, include });
+      return tx.cHAMADOS.findUnique({ where: { id: toId(id) }, include });
     });
 
     res.json(updated);
   } catch (erro) {
+    if (erro.code === 'INVALID_ID') return res.status(400).json({ erro: erro.message });
     if (erro.code === 'P2025') {
       return res.status(409).json({ erro: 'O chamado foi alterado em outra sessão. Reabra os detalhes antes de tentar novamente.' });
     }
@@ -188,7 +193,8 @@ async function dashboard(req, res) {
       prisma.aTIVOS.count(),
     ]);
     res.json({ abertos, andamento, concluidos, totalAtivos });
-  } catch {
+  } catch (err) {
+    if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
     res.status(500).json({ erro: 'Erro ao carregar dashboard.' });
   }
 }
@@ -260,6 +266,7 @@ async function relatorios(req, res) {
 
     const temposPorTecnico = {};
     concluidos.forEach(c => {
+      if (!c.atualizado_em) return; // Registros legados podem não ter essa data.
       const key = c.id_tecnico;
       const diff = (new Date(c.atualizado_em) - new Date(c.criado_em)) / (1000 * 60 * 60);
       if (!temposPorTecnico[key]) {
@@ -284,7 +291,8 @@ async function relatorios(req, res) {
       rankingAtivos: rankingAtivosComNome,
       tempoMedioPorTecnico,
     });
-  } catch {
+  } catch (err) {
+    if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
     res.status(500).json({ erro: 'Erro ao gerar relatórios.' });
   }
 }

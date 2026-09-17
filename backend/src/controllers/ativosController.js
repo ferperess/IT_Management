@@ -1,3 +1,4 @@
+const { toId } = require('../utils/ids');
 const prisma = require('../prisma');
 const {
   STATUS_ATIVO_VALIDOS,
@@ -9,7 +10,8 @@ async function listar_ativos(req, res) {
   try {
     const ativos = await prisma.aTIVOS.findMany({ orderBy: { nome: 'asc' } });
     res.json(ativos);
-  } catch {
+  } catch (err) {
+    if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
     res.status(500).json({ erro: 'Erro ao listar ativos.' });
   }
 }
@@ -47,7 +49,8 @@ async function criar_ativo(req, res) {
       },
     });
     res.status(201).json(ativo);
-  } catch {
+  } catch (err) {
+    if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
     res.status(500).json({ erro: 'Erro ao criar ativo.' });
   }
 }
@@ -76,16 +79,17 @@ async function atualizar_ativo(req, res) {
     if (data_aquisicao) data.data_aquisicao = new Date(data_aquisicao);
     Object.keys(data).forEach(k => data[k] === undefined && delete data[k]);
 
-    const ativo = await prisma.aTIVOS.update({ where: { id: Number(id) }, data });
+    const ativo = await prisma.aTIVOS.update({ where: { id: toId(id) }, data });
     res.json(ativo);
-  } catch {
+  } catch (err) {
+    if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
     res.status(404).json({ erro: 'Ativo não encontrado.' });
   }
 }
 
 async function remover_ativo(req, res) {
   try {
-    const id = Number(req.params.id);
+    const id = toId(req.params.id);
 
     // Impede remoção de ativo vinculado a chamado aberto ou em andamento
     const chamadoAberto = await prisma.cHAMADOS.findFirst({
@@ -103,7 +107,8 @@ async function remover_ativo(req, res) {
 
     await prisma.aTIVOS.delete({ where: { id } });
     res.json({ mensagem: 'Ativo removido.' });
-  } catch {
+  } catch (err) {
+    if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
     res.status(404).json({ erro: 'Ativo não encontrado.' });
   }
 }

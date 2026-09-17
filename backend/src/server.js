@@ -7,6 +7,8 @@ const rateLimit = require('express-rate-limit');
 const routes = require('./routes');
 
 const app = express();
+const { jsonReplacer } = require('./utils/ids');
+app.set('json replacer', jsonReplacer);
 
 // Configuração de Segurança com Helmet
 app.use(helmet());

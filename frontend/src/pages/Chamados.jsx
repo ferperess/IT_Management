@@ -115,11 +115,11 @@ export default function Chamados() {
     }
     travaCriacao.current = true; setCriando(true); setErroNovo(''); setMensagem(''); setAvisoClassificacao('');
     try {
-      const { data } = await api.post('/chamados', { titulo: novo.titulo.trim(), descricao: novo.descricao.trim(), id_ativo: novo.id_ativo ? Number(novo.id_ativo) : null });
+      const { data } = await api.post('/chamados', { titulo: novo.titulo.trim(), descricao: novo.descricao.trim(), id_ativo: novo.id_ativo ? String(novo.id_ativo) : null });
       setChamados(lista => [data, ...lista.filter(c => c.id !== data.id)]);
       setNovo(novoVazio); setFormAberto(false);
       setAvisoClassificacao(data.aviso ? `Chamado #${data.id}: ${data.aviso}` : '');
-      setMensagem(`Chamado #${data.id} registrado com sucesso. Os filtros atuais foram mantidos.`);
+      setMensagem(`Chamado #${data.id} registrado com sucesso`);
       novoBotao.current?.focus();
     } catch (err) { setErroNovo(err.response?.data?.erro || 'Não foi possível registrar o chamado. Seus dados foram preservados.'); }
     finally { travaCriacao.current = false; setCriando(false); }
@@ -134,7 +134,7 @@ export default function Chamados() {
     travaSalvar.current = true; setSalvando(true); setErroDetalhe(''); setSucessoDetalhe('');
     const payload = {};
     for (const campo of ['status', 'prioridade', 'categoria']) if (gestao[campo] !== detalhe[campo]) payload[campo] = gestao[campo];
-    if (String(gestao.id_tecnico || '') !== String(detalhe.id_tecnico || '')) payload.id_tecnico = gestao.id_tecnico ? Number(gestao.id_tecnico) : null;
+    if (String(gestao.id_tecnico || '') !== String(detalhe.id_tecnico || '')) payload.id_tecnico = gestao.id_tecnico ? String(gestao.id_tecnico) : null;
     if (gestao.comentario.trim()) payload.comentario = gestao.comentario.trim();
     try {
       if (!Object.keys(payload).length) { setSucessoDetalhe('Nenhuma alteração para salvar.'); return; }
@@ -205,6 +205,7 @@ export default function Chamados() {
       {erroDetalhe && <div className="alert alert-erro" role="alert">{erroDetalhe}</div>}
       {sucessoDetalhe && <div className="alert alert-sucesso" role="status">{sucessoDetalhe}</div>}
       {detalhe && <><h3 className="ch-detail-title">{detalhe.titulo}</h3><div className="ch-detail-badges"><Badge valor={detalhe.status} /><Badge valor={detalhe.prioridade} prioridade /></div><dl className="ch-detail-meta"><dt>Solicitante</dt><dd>{detalhe.solicitante?.nome || '—'}</dd><dt>Abertura</dt><dd>{fmtData(detalhe.criado_em)}</dd><dt>Categoria</dt><dd>{categorias[detalhe.categoria] || 'Outro'}</dd><dt>Responsável</dt><dd>{detalhe.tecnico?.nome || 'Não atribuído'}</dd><dt>Ativo</dt><dd>{detalhe.ativo?.nome || 'Sem vínculo'}</dd></dl><h3>Descrição</h3><p className="ch-description">{detalhe.descricao}</p>
+        {detalhe.status === 'CANCELADO' && <p className="ch-notice" role="status">Este chamado foi cancelado e está disponível somente para consulta</p>}
         {podeGerenciar && detalhe.status !== 'CANCELADO' && <form className="ch-management" onSubmit={atualizar}><h3>Gestão técnica</h3><fieldset disabled={salvando}><div className="ch-form-grid">
           <Campo id="ch-editar-status" label="Status"><select id="ch-editar-status" className="form-control" value={gestao.status} onChange={mudarGestao('status')}>{[detalhe.status, ...(transicoes[detalhe.status] || [])].map(s => <option key={s} value={s}>{statusLabel[s]}</option>)}</select></Campo>
           <Campo id="ch-editar-prioridade" label="Prioridade"><select id="ch-editar-prioridade" className="form-control" value={gestao.prioridade} onChange={mudarGestao('prioridade')}><Opcoes items={prioLabel} /></select></Campo>

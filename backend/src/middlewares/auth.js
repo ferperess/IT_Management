@@ -1,3 +1,4 @@
+const { toId } = require('../utils/ids');
 const jwt = require('jsonwebtoken');
 
 const SECRET = process.env.JWT_SECRET;
@@ -10,7 +11,7 @@ function autenticar(req, res, next) {
   try {
     const decoded = jwt.verify(token, SECRET);
     // Adiciona verificação extra se necessário (ex: status do usuário no banco)
-    req.usuario = decoded;
+    req.usuario = { ...decoded, id: toId(decoded.id) };
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {

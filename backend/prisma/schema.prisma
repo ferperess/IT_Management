@@ -8,14 +8,14 @@ datasource db {
 }
 
 model USUARIOS {
-  id         Int      @id @default(autoincrement())
-  nome       String
-  email      String   @unique
-  username   String   @unique
-  senha_hash String
-  perfil     String   @default("COMUM") // COMUM | TECNICO | ADMIN
-  status     String   @default("ATIVO") // ATIVO | INATIVO
-  criado_em  DateTime @default(now())
+  id         BigInt      @id @default(autoincrement())
+  nome       String @db.VarChar
+  email      String   @unique @db.VarChar
+  username   String   @unique @db.VarChar
+  senha_hash String @db.VarChar
+  perfil     String   @default("COMUM") @db.VarChar // COMUM | TECNICO | ADMIN
+  status     String   @default("ATIVO") @db.VarChar // ATIVO | INATIVO
+  criado_em  DateTime @default(now()) @db.Timestamptz(6)
 
   chamados_abertos    CHAMADOS[]           @relation("solicitante")
   chamados_atribuidos CHAMADOS[]           @relation("tecnico")
@@ -24,70 +24,72 @@ model USUARIOS {
 }
 
 model ATIVOS {
-  id             Int       @id @default(autoincrement())
-  nome           String
-  tipo           String
-  localizacao    String
-  data_aquisicao DateTime?
-  status         String    @default("ATIVO") // ATIVO | EM_MANUTENCAO | INATIVO
-  criado_em      DateTime  @default(now())
+  id             BigInt       @id @default(autoincrement())
+  nome           String @db.VarChar
+  tipo           String @db.VarChar
+  localizacao    String? @db.VarChar
+  numero_serie   String? @db.VarChar
+  responsavel    String? @db.VarChar
+  data_aquisicao DateTime? @db.Timestamptz(6)
+  status         String    @default("ATIVO") @db.VarChar // ATIVO | MANUTENCAO | INATIVO
+  criado_em      DateTime  @default(now()) @db.Timestamptz(6)
 
   chamados      CHAMADOS[]
   documentacoes DOCUMENTACOES[]
 }
 
 model CHAMADOS {
-  id            Int      @id @default(autoincrement())
-  titulo        String
-  descricao     String
-  prioridade    String   @default("MEDIA")    // BAIXA | MEDIA | ALTA | CRITICA
-  categoria     String   @default("OUTRO")    // HARDWARE | SOFTWARE | REDE | ACESSO | IMPRESSORA | AUDIOVISUAL | OUTRO
-  status        String   @default("ABERTO")   // ABERTO | EM_ANDAMENTO | CONCLUIDO | CANCELADO
-  criado_em     DateTime @default(now())
-  atualizado_em DateTime @updatedAt
+  id            BigInt      @id @default(autoincrement())
+  titulo        String @db.VarChar
+  descricao     String @db.Text
+  prioridade    String   @default("MEDIA") @db.VarChar // BAIXA | MEDIA | ALTA | CRITICA
+  categoria     String   @default("OUTRO") @db.VarChar // HARDWARE | SOFTWARE | REDE | ACESSO | IMPRESSORA | AUDIOVISUAL | OUTRO
+  status        String   @default("ABERTO") @db.VarChar // ABERTO | EM_ANDAMENTO | CONCLUIDO | CANCELADO
+  criado_em     DateTime @default(now()) @db.Timestamptz(6)
+  atualizado_em DateTime? @default(now()) @updatedAt @db.Timestamptz(6)
 
-  id_solicitante Int
-  solicitante    USUARIOS @relation("solicitante", fields: [id_solicitante], references: [id])
+  id_solicitante BigInt
+  solicitante    USUARIOS @relation("solicitante", fields: [id_solicitante], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  id_ativo Int?
-  ativo    ATIVOS? @relation(fields: [id_ativo], references: [id])
+  id_ativo BigInt?
+  ativo    ATIVOS? @relation(fields: [id_ativo], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  id_tecnico Int?
-  tecnico    USUARIOS? @relation("tecnico", fields: [id_tecnico], references: [id])
+  id_tecnico BigInt?
+  tecnico    USUARIOS? @relation("tecnico", fields: [id_tecnico], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   historico     HISTORICO_CHAMADOS[]
   documentacoes DOCUMENTACOES[]
 }
 
 model HISTORICO_CHAMADOS {
-  id          Int      @id @default(autoincrement())
-  comentario  String
-  status_novo String?
-  criado_em   DateTime @default(now())
+  id          BigInt      @id @default(autoincrement())
+  comentario  String @db.Text
+  status_novo String? @db.VarChar
+  criado_em   DateTime @default(now()) @db.Timestamptz(6)
 
-  id_chamado Int
-  chamado    CHAMADOS @relation(fields: [id_chamado], references: [id])
+  id_chamado BigInt
+  chamado    CHAMADOS @relation(fields: [id_chamado], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  id_usuario Int
-  usuario    USUARIOS @relation(fields: [id_usuario], references: [id])
+  id_usuario BigInt
+  usuario    USUARIOS @relation(fields: [id_usuario], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model DOCUMENTACOES {
-  id           Int      @id @default(autoincrement())
-  titulo       String
-  descricao    String?
-  link_externo String?
-  arquivo_nome String?
+  id           BigInt      @id @default(autoincrement())
+  titulo       String @db.VarChar
+  descricao    String? @db.Text
+  link_externo String? @db.VarChar
+  arquivo_nome String? @db.VarChar
   arquivo_dados Bytes?
-  arquivo_mime  String?
-  criado_em    DateTime @default(now())
+  arquivo_mime  String? @db.Text
+  criado_em    DateTime @default(now()) @db.Timestamptz(6)
 
-  id_responsavel Int
-  responsavel    USUARIOS @relation(fields: [id_responsavel], references: [id])
+  id_responsavel BigInt?
+  responsavel    USUARIOS? @relation(fields: [id_responsavel], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  id_ativo Int?
-  ativo    ATIVOS? @relation(fields: [id_ativo], references: [id])
+  id_ativo BigInt?
+  ativo    ATIVOS? @relation(fields: [id_ativo], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  id_chamado Int?
-  chamado    CHAMADOS? @relation(fields: [id_chamado], references: [id])
+  id_chamado BigInt?
+  chamado    CHAMADOS? @relation(fields: [id_chamado], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
