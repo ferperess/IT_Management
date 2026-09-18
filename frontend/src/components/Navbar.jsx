@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import logoSGTI from '../src/assets/SGTI-navbar.svg';
 
 export default function Navbar() {
   const { usuario, logout } = useAuth();
@@ -25,7 +26,10 @@ export default function Navbar() {
 
   return (
     <header className="nav-header" onKeyDown={fecharComEscape}>
-      <NavLink to="/dashboard" className="nav-logo">&#9670; Gestão de TI</NavLink>
+      <NavLink to="/dashboard" className="nav-logo">
+        <img src={logoSGTI} alt="" width="32" height="32" />
+        <span>Gestão de TI</span>
+      </NavLink>
       <button ref={menuBotao} type="button" className="nav-toggle" aria-expanded={menuAberto} aria-controls="navegacao-principal" onClick={() => setMenuAberto(aberto => !aberto)}>
         {menuAberto ? 'Fechar menu' : 'Menu'}
       </button>

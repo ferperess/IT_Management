@@ -493,3 +493,14 @@ textarea.form-control { resize: vertical; }
   .nav-toggle, .nav-logout { padding-inline: 10px; font-size: 12px; }
   .nav-header nav ul { grid-template-columns: minmax(0, 1fr); }
 }
+
+.nav-header .nav-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-header .nav-logo img {
+  display: block;
+  flex-shrink: 0;
+}

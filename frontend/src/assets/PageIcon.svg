@@ -1,11 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <title>SGTI — Infraestrutura conectada</title>
-  <desc>Losango vermelho central conectado a quatro nós brancos sobre fundo grafite, representando a gestão integrada dos recursos de TI.</desc>
+  <title>SGTI — Central de TI</title>
+  <desc>Losango vermelho grande com contorno branco sobre fundo grafite, versão simplificada do símbolo de gestão integrada.</desc>
   <rect width="64" height="64" rx="14" fill="#17212F"/>
-  <path d="M32 14V50M14 32H50" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
-  <circle cx="32" cy="13" r="5" fill="#FFFFFF"/>
-  <circle cx="51" cy="32" r="5" fill="#FFFFFF"/>
-  <circle cx="32" cy="51" r="5" fill="#FFFFFF"/>
-  <circle cx="13" cy="32" r="5" fill="#FFFFFF"/>
-  <path d="M32 19L45 32L32 45L19 32L32 19Z" fill="#CC0000" stroke="#FFFFFF" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M32 9L55 32L32 55L9 32Z" fill="#CC0000" stroke="#FFFFFF" stroke-width="5" stroke-linejoin="round"/>
 </svg>

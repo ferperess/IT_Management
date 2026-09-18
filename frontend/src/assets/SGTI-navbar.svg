@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <title>SGTI — Gestão integrada de TI</title>
+  <desc>Símbolo vermelho de uma central conectada a quatro nós, com fundo transparente.</desc>
+  <g stroke="#CC0000" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M32 16V21M43 32H48M32 43V48M16 32H21"/>
+    <path d="M32 20L44 32L32 44L20 32Z"/>
+    <circle cx="32" cy="10" r="5"/>
+    <circle cx="54" cy="32" r="5"/>
+    <circle cx="32" cy="54" r="5"/>
+    <circle cx="10" cy="32" r="5"/>
+  </g>
+</svg>
