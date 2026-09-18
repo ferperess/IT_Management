@@ -49,7 +49,7 @@ export default function Usuarios() {
             />
             <button className="btn btn-secondary" onClick={() => carregar(busca)}>Pesquisar</button>
           </div>
-          <table className="cps-table">
+          <div className="table-scroll" role="region" aria-label="Tabela de usuários" tabIndex={0}><table className="cps-table">
             <thead>
               <tr>
                 <th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Ações</th>
@@ -88,7 +88,7 @@ export default function Usuarios() {
                 </tr>
               )}
             </tbody>
-          </table>
+          </table></div>
         </div>
       </main>
     </>

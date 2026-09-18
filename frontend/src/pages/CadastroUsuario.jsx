@@ -95,7 +95,7 @@ export default function CadastroUsuario() {
                 </select>
               </div>
             </div>
-            <div style={{ marginTop: 20, textAlign: 'right', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <div className="form-actions">
               <button type="button" className="btn btn-secondary" onClick={() => navigate('/usuarios')}>Cancelar</button>
               <button type="submit" className="btn btn-primary" disabled={loading}>
                 {loading ? 'Salvando...' : 'Salvar Dados'}

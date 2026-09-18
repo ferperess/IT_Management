@@ -92,7 +92,7 @@ export default function Ativos() {
               <button className="btn btn-primary" onClick={novoForm}>+ Cadastrar Ativo</button>
             )}
           </div>
-          <table className="cps-table">
+          <div className="table-scroll" role="region" aria-label="Tabela de ativos" tabIndex={0}><table className="cps-table">
             <thead>
               <tr><th>Equipamento</th><th>Tipo</th><th>Localização</th><th>Status</th>{podeEditar && <th>Ações</th>}</tr>
             </thead>
@@ -119,7 +119,7 @@ export default function Ativos() {
                 <tr><td colSpan={podeEditar ? 5 : 4} style={{ textAlign: 'center', color: '#999', padding: 20 }}>Nenhum ativo cadastrado.</td></tr>
               )}
             </tbody>
-          </table>
+          </table></div>
         </div>
 
         {mostrarForm && podeEditar && (
@@ -157,7 +157,7 @@ export default function Ativos() {
                   </select>
                 </div>
               </div>
-              <div style={{ marginTop: 20, textAlign: 'right', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <div className="form-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setMostrarForm(false)}>Cancelar</button>
                 <button type="submit" className="btn btn-primary">Salvar Ativo</button>
               </div>

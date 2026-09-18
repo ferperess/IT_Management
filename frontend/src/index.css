@@ -407,3 +407,89 @@ div[style*="background: #f9f9f9"] {
   .chamados-page .ch-detail-meta dd { margin-bottom: 10px; }
   .chamados-page .ch-management { padding: 14px; }
 }
+/* Adaptação compartilhada para desktop, tablet e celular. */
+main, .card-box, .quick-actions, .form-group, .reports-grid > *,
+.chamados-page .ch-filters > *, .chamados-page .ch-form-grid > * { min-width: 0; }
+main { width: 100%; overflow-wrap: anywhere; }
+img, svg, video { max-width: 100%; }
+.form-control { min-width: 0; max-width: 100%; }
+textarea.form-control { resize: vertical; }
+.page-header { flex-wrap: wrap; gap: 16px; }
+.page-header > *, .chamados-page .ch-heading > * { min-width: 0; }
+.form-row { flex-wrap: wrap; }
+.form-row .form-group { flex: 1 1 220px; }
+.form-row > .form-control { flex: 1 1 220px; width: auto; }
+.form-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; margin-top: 20px; }
+.actions-bar { flex-wrap: wrap; }
+.btn { white-space: normal; max-width: 100%; }
+.cards-grid { grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); }
+.reports-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 20px; }
+.reports-grid strong { flex-shrink: 0; margin-left: 12px; }
+.table-scroll, .chamados-page .ch-table-wrap { width: 100%; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+.table-scroll .cps-table { min-width: 640px; }
+.cps-table td { overflow-wrap: anywhere; max-width: 320px; }
+.table-scroll:focus-visible, .ch-table-wrap:focus-visible,
+.nav-header :is(a, button):focus-visible { outline: 3px solid #155bb5; outline-offset: 3px; }
+.nav-toggle, .nav-logout { min-height: 44px; padding: 10px 14px; border: 1px solid var(--cps-borda); border-radius: 8px; background: #fff; color: #344154; font-size: 14px; font-weight: bold; cursor: pointer; }
+.nav-toggle { display: none; }
+.nav-logout:hover { background: var(--cps-vermelho); color: #fff; }
+.nav-header { gap: 16px; }
+.login-wrapper { height: auto; min-height: 100vh; min-height: 100dvh; padding: 24px; }
+.login-box { margin-block: auto; }
+.chamados-page .ch-results, .chamados-page .ch-detail-badges,
+.chamados-page .ch-drawer-head { flex-wrap: wrap; }
+.chamados-page .ch-drawer-head h2 { min-width: 0; overflow-wrap: anywhere; }
+.chamados-page .ch-ticket-top { flex-wrap: wrap; }
+.chamados-page .ch-drawer { overscroll-behavior-y: contain; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+
+@media (max-width: 960px) {
+  .nav-header { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; padding: 8px 20px; gap: 8px; }
+  .nav-header .nav-logo { white-space: normal; padding: 10px 0; }
+  .nav-toggle { display: inline-flex; align-items: center; justify-content: center; }
+  .nav-header nav { display: none; grid-column: 1 / -1; grid-row: 2; max-height: 55vh; overflow-y: auto; }
+  .nav-header nav.nav-open { display: block; }
+  .nav-header nav ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .nav-header nav a { padding: 14px 12px; white-space: normal; }
+  .nav-sair { grid-column: 3; grid-row: 1; }
+  .chamados-page .ch-filters, .chamados-page .ch-extra { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 600px) {
+  main, .chamados-page { padding: 20px 12px; }
+  .card-box, .quick-actions, .chamados-page .card-box { padding: 16px; }
+  .page-header { align-items: stretch; flex-direction: column; }
+  .page-header h2 { font-size: 21px; }
+  .form-row { flex-direction: column; gap: 0; }
+  .form-row > .form-group, .form-row > .form-control { flex: none !important; width: 100%; }
+  .form-row > .btn { width: 100%; margin-bottom: 15px; }
+  .form-row .form-group > .btn { width: 100%; }
+  .form-control, .chamados-page .form-control { font-size: 16px; min-height: 44px; }
+  .btn, .btn-sm, .chamados-page .btn { min-height: 44px; }
+  .form-actions { flex-direction: column; }
+  .form-actions > .btn, .btn-group > .btn { width: 100%; }
+  .login-wrapper { padding: 16px; }
+  .login-box { padding: 32px 20px; }
+  .login-box h1 { font-size: 24px; }
+  .login-box p.subtitle { margin-bottom: 24px; line-height: 1.5; }
+  .login-box .form-control { padding: 14px 12px; font-size: 16px; }
+  .chamados-page h1 { font-size: 26px; }
+  .chamados-page .ch-heading > .btn { width: 100%; }
+  .chamados-page .ch-board, .chamados-page .ch-filters,
+  .chamados-page .ch-extra, .chamados-page .ch-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .chamados-page .ch-toolbar { align-items: stretch; flex-direction: column; }
+  .chamados-page .ch-switch > .btn { flex: 1; }
+  .chamados-page .ch-drawer { width: 100%; padding: 16px; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+  .chamados-page .ch-actions { align-items: stretch; flex-direction: column; }
+  .chamados-page .ch-detail-meta { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .chamados-page .ch-detail-meta dd { margin-bottom: 10px; }
+  .chamados-page .ch-management { padding: 14px; }
+  .chamados-page .ch-management button[type="submit"] { width: 100%; }
+  .chamados-page .ch-link { min-height: 44px; }
+}
+
+@media (max-width: 380px) {
+  .nav-header { padding-inline: 12px; }
+  .nav-header .nav-logo { font-size: 15px; }
+  .nav-toggle, .nav-logout { padding-inline: 10px; font-size: 12px; }
+  .nav-header nav ul { grid-template-columns: minmax(0, 1fr); }
+}

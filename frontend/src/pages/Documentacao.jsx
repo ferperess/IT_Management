@@ -131,7 +131,7 @@ export default function Documentacao() {
               <button className="btn btn-primary" onClick={novoForm}>+ Novo Documento</button>
             )}
           </div>
-          <table className="cps-table">
+          <div className="table-scroll" role="region" aria-label="Tabela de documentos" tabIndex={0}><table className="cps-table">
             <thead>
               <tr><th>Título</th><th>Ativo Vinculado</th><th>Chamado Vinculado</th><th>Responsável</th><th>Data Registro</th><th>Ações</th></tr>
             </thead>
@@ -171,7 +171,7 @@ export default function Documentacao() {
                 <tr><td colSpan={6} style={{ textAlign: 'center', color: '#999', padding: 20 }}>Nenhum documento cadastrado.</td></tr>
               )}
             </tbody>
-          </table>
+          </table></div>
         </div>
 
         {/* Leitura */}
@@ -263,7 +263,7 @@ export default function Documentacao() {
                   {editandoId && <small style={{ color: '#999' }}>Deixe em branco para manter o arquivo atual.</small>}
                 </div>
               </div>
-              <div style={{ textAlign: 'right', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <div className="form-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setMostrarForm(false)}>Cancelar</button>
                 <button type="submit" className="btn btn-primary">Salvar Documento</button>
               </div>

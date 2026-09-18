@@ -1,9 +1,22 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Navbar() {
   const { usuario, logout } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const [menuAberto, setMenuAberto] = useState(false);
+  const menuBotao = useRef(null);
+
+  useEffect(() => { setMenuAberto(false); }, [pathname]);
+
+  function fecharComEscape(event) {
+    if (event.key === 'Escape' && menuAberto) {
+      setMenuAberto(false);
+      menuBotao.current?.focus();
+    }
+  }
 
   function handleSair() {
     logout();
@@ -11,9 +24,12 @@ export default function Navbar() {
   }
 
   return (
-    <header className="nav-header">
+    <header className="nav-header" onKeyDown={fecharComEscape}>
       <NavLink to="/dashboard" className="nav-logo">&#9670; Gestão de TI</NavLink>
-      <nav>
+      <button ref={menuBotao} type="button" className="nav-toggle" aria-expanded={menuAberto} aria-controls="navegacao-principal" onClick={() => setMenuAberto(aberto => !aberto)}>
+        {menuAberto ? 'Fechar menu' : 'Menu'}
+      </button>
+      <nav id="navegacao-principal" aria-label="Navegação principal" className={menuAberto ? 'nav-open' : ''} onClick={event => { if (event.target.closest('a')) setMenuAberto(false); }}>
         <ul>
           <li>
             <NavLink to="/dashboard" className={({ isActive }) => isActive ? 'active' : ''}>
@@ -45,7 +61,7 @@ export default function Navbar() {
         </ul>
       </nav>
       <div className="nav-sair">
-        <a onClick={handleSair} style={{ cursor: 'pointer' }}>Sair</a>
+        <button type="button" className="nav-logout" onClick={handleSair}>Sair</button>
       </div>
     </header>
   );

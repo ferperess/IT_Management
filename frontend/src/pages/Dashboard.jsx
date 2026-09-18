@@ -122,7 +122,7 @@ export default function Dashboard() {
                   </p>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
+                <div className="reports-grid">
 
                   {/* Por Categoria */}
                   <div>
@@ -186,7 +186,7 @@ export default function Dashboard() {
                     {relatorios.tempoMedioPorTecnico.length === 0
                       ? <p style={{ color: '#bbb', fontSize: 13 }}>Nenhum chamado concluído com técnico atribuído no período</p>
                       : (
-                        <table className="cps-table" style={{ marginTop: 0 }}>
+                        <div className="table-scroll" role="region" aria-label="Tempo médio de resolução por técnico" tabIndex={0}><table className="cps-table" style={{ marginTop: 0 }}>
                           <thead>
                             <tr>
                               <th>Técnico</th>
@@ -206,7 +206,7 @@ export default function Dashboard() {
                               </tr>
                             ))}
                           </tbody>
-                        </table>
+                        </table></div>
                       )
                     }
                   </div>
