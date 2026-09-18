@@ -7,6 +7,7 @@ const rateLimit = require('express-rate-limit');
 const routes = require('./routes');
 
 const app = express();
+app.set('trust proxy', 1);
 const { jsonReplacer } = require('./utils/ids');
 app.set('json replacer', jsonReplacer);
 
