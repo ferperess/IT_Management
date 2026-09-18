@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import logoSGTI from '../src/assets/SGTI-navbar.svg';
+import logoSGTI from '../assets/SGTI-navbar.svg';
 
 export default function Navbar() {
   const { usuario, logout } = useAuth();
