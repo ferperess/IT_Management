@@ -30,10 +30,10 @@ export default function Navbar() {
         <img src={logoSGTI} alt="" width="32" height="32" />
         <span>Gestão de TI</span>
       </NavLink>
-      <button ref={menuBotao} type="button" className="nav-toggle" aria-expanded={menuAberto} aria-controls="navegacao-principal" onClick={() => setMenuAberto(aberto => !aberto)}>
-        {menuAberto ? 'Fechar menu' : 'Menu'}
+      <button ref={menuBotao} type="button" className="nav-toggle" aria-label={menuAberto ? 'Fechar menu' : 'Abrir menu'} aria-expanded={menuAberto} aria-controls="navegacao-principal" onClick={() => setMenuAberto(aberto => !aberto)}>
+        Menu
       </button>
-      <nav id="navegacao-principal" aria-label="Navegação principal" className={menuAberto ? 'nav-open' : ''} onClick={event => { if (event.target.closest('a')) setMenuAberto(false); }}>
+      <nav id="navegacao-principal" aria-label="Navegação principal" className={menuAberto ? 'nav-open' : ''} onClick={event => { if (event.target.closest('a') && menuAberto) { menuBotao.current?.focus(); setMenuAberto(false); } }}>
         <ul>
           <li>
             <NavLink to="/dashboard" className={({ isActive }) => isActive ? 'active' : ''}>

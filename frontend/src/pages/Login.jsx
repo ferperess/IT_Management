@@ -37,9 +37,9 @@ export default function Login() {
         {erro && <div className="alert alert-erro">{erro}</div>}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>E-mail</label>
-            <input
-              type="email"
+            <label htmlFor="login-campo-1">E-mail</label>
+            <input id="login-campo-1"
+              type="email" autoComplete="username" autoCapitalize="none" spellCheck={false}
               className="form-control"
               placeholder="Digite seu e-mail"
               value={email}
@@ -48,9 +48,9 @@ export default function Login() {
             />
           </div>
           <div className="form-group">
-            <label>Senha</label>
-            <input
-              type="password"
+            <label htmlFor="login-campo-2">Senha</label>
+            <input id="login-campo-2"
+              type="password" autoComplete="current-password"
               className="form-control"
               placeholder="Digite sua senha"
               value={senha}

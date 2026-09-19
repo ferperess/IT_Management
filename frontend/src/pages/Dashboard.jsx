@@ -99,12 +99,12 @@ export default function Dashboard() {
             {/* Filtro de período */}
             <div className="form-row" style={{ marginBottom: 20, alignItems: 'flex-end' }}>
               <div className="form-group" style={{ flex: 1 }}>
-                <label>Data Início</label>
-                <input type="date" className="form-control" value={dataInicio} onChange={e => setDataInicio(e.target.value)} />
+                <label htmlFor="dashboard-campo-1">Data Início</label>
+                <input id="dashboard-campo-1" type="date" className="form-control" value={dataInicio} onChange={e => setDataInicio(e.target.value)} />
               </div>
               <div className="form-group" style={{ flex: 1 }}>
-                <label>Data Fim</label>
-                <input type="date" className="form-control" value={dataFim} onChange={e => setDataFim(e.target.value)} />
+                <label htmlFor="dashboard-campo-2">Data Fim</label>
+                <input id="dashboard-campo-2" type="date" className="form-control" value={dataFim} onChange={e => setDataFim(e.target.value)} />
               </div>
               <div className="form-group" style={{ flex: 'none' }}>
                 <button className="btn btn-primary" onClick={carregarRelatorios} disabled={carregandoRel}>

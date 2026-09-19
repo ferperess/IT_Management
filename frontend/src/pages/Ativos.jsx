@@ -130,29 +130,29 @@ export default function Ativos() {
             {sucesso && <div className="alert alert-sucesso">{sucesso}</div>}
             <form onSubmit={handleSubmit}>
               <div className="form-group">
-                <label>Nome do Equipamento (Tag/Patrimônio)</label>
-                <input className="form-control" placeholder="Ex: Desktop-Lab01-PC05" value={form.nome} onChange={set('nome')} required />
+                <label htmlFor="ativos-campo-1">Nome do Equipamento (Tag/Patrimônio)</label>
+                <input id="ativos-campo-1" className="form-control" placeholder="Ex: Desktop-Lab01-PC05" value={form.nome} onChange={set('nome')} required />
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Tipo</label>
-                  <select className="form-control" value={form.tipo} onChange={set('tipo')}>
+                  <label htmlFor="ativos-campo-2">Tipo</label>
+                  <select id="ativos-campo-2" className="form-control" value={form.tipo} onChange={set('tipo')}>
                     {tiposOpts.map(t => <option key={t}>{t}</option>)}
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>Localização</label>
-                  <input className="form-control" placeholder="Ex: Laboratório 1" value={form.localizacao} onChange={set('localizacao')} required />
+                  <label htmlFor="ativos-campo-3">Localização</label>
+                  <input id="ativos-campo-3" className="form-control" placeholder="Ex: Laboratório 1" value={form.localizacao} onChange={set('localizacao')} required />
                 </div>
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Data de Aquisição</label>
-                  <input type="date" className="form-control" value={form.data_aquisicao} onChange={set('data_aquisicao')} />
+                  <label htmlFor="ativos-campo-4">Data de Aquisição</label>
+                  <input id="ativos-campo-4" type="date" className="form-control" value={form.data_aquisicao} onChange={set('data_aquisicao')} />
                 </div>
                 <div className="form-group">
-                  <label>Status</label>
-                  <select className="form-control" value={form.status} onChange={set('status')}>
+                  <label htmlFor="ativos-campo-5">Status</label>
+                  <select id="ativos-campo-5" className="form-control" value={form.status} onChange={set('status')}>
                     {statusOpts.map(s => <option key={s} value={s}>{statusLabel[s]}</option>)}
                   </select>
                 </div>

@@ -225,17 +225,17 @@ export default function Documentacao() {
             {sucesso && <div className="alert alert-sucesso">{sucesso}</div>}
             <form onSubmit={handleSubmit} style={{ marginTop: 15 }}>
               <div className="form-group">
-                <label>Título do Documento</label>
-                <input className="form-control" placeholder="Título descritivo" value={form.titulo} onChange={set('titulo')} required />
+                <label htmlFor="documentacao-campo-1">Título do Documento</label>
+                <input id="documentacao-campo-1" className="form-control" placeholder="Título descritivo" value={form.titulo} onChange={set('titulo')} required />
               </div>
               <div className="form-group">
-                <label>Descrição</label>
-                <textarea className="form-control" rows={3} value={form.descricao} onChange={set('descricao')} />
+                <label htmlFor="documentacao-campo-2">Descrição</label>
+                <textarea id="documentacao-campo-2" className="form-control" rows={3} value={form.descricao} onChange={set('descricao')} />
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Ativo Relacionado (Opcional)</label>
-                  <select className="form-control" value={form.id_ativo} onChange={set('id_ativo')}>
+                  <label htmlFor="documentacao-campo-3">Ativo Relacionado (Opcional)</label>
+                  <select id="documentacao-campo-3" className="form-control" value={form.id_ativo} onChange={set('id_ativo')}>
                     <option value="">— Nenhum —</option>
                     {ativos.map(a => (
                       <option key={a.id} value={a.id}>{a.nome} ({a.tipo})</option>
@@ -243,8 +243,8 @@ export default function Documentacao() {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>Chamado Relacionado (Opcional)</label>
-                  <select className="form-control" value={form.id_chamado} onChange={set('id_chamado')}>
+                  <label htmlFor="documentacao-campo-4">Chamado Relacionado (Opcional)</label>
+                  <select id="documentacao-campo-4" className="form-control" value={form.id_chamado} onChange={set('id_chamado')}>
                     <option value="">— Nenhum —</option>
                     {chamados.map(c => (
                       <option key={c.id} value={c.id}>#{c.id} — {c.titulo}</option>
@@ -254,12 +254,12 @@ export default function Documentacao() {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Link Externo (Opcional)</label>
-                  <input type="url" className="form-control" placeholder="https://..." value={form.link_externo} onChange={set('link_externo')} />
+                  <label htmlFor="documentacao-campo-5">Link Externo (Opcional)</label>
+                  <input id="documentacao-campo-5" type="url" className="form-control" placeholder="https://..." value={form.link_externo} onChange={set('link_externo')} />
                 </div>
                 <div className="form-group">
-                  <label>Arquivo (PDF, DOCX, JPG, PNG)</label>
-                  <input type="file" className="form-control" style={{ padding: 7 }} onChange={e => setArquivo(e.target.files[0])} />
+                  <label htmlFor="documentacao-campo-6">Arquivo (PDF, DOCX, JPG, PNG)</label>
+                  <input id="documentacao-campo-6" type="file" className="form-control" style={{ padding: 7 }} onChange={e => setArquivo(e.target.files[0])} />
                   {editandoId && <small style={{ color: '#999' }}>Deixe em branco para manter o arquivo atual.</small>}
                 </div>
               </div>

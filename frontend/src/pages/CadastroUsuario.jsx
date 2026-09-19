@@ -61,35 +61,35 @@ export default function CadastroUsuario() {
           {sucesso && <div className="alert alert-sucesso">{sucesso}</div>}
           <form onSubmit={handleSubmit}>
             <div className="form-group">
-              <label>Nome Completo</label>
-              <input className="form-control" placeholder="Nome do servidor" value={form.nome} onChange={set('nome')} required />
+              <label htmlFor="cadastrousuario-campo-1">Nome Completo</label>
+              <input id="cadastrousuario-campo-1" className="form-control" placeholder="Nome do servidor" value={form.nome} onChange={set('nome')} required />
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label>E-mail</label>
-                <input type="email" className="form-control" placeholder="email@teste.com" value={form.email} onChange={set('email')} required />
+                <label htmlFor="cadastrousuario-campo-2">E-mail</label>
+                <input id="cadastrousuario-campo-2" type="email" className="form-control" placeholder="email@teste.com" value={form.email} onChange={set('email')} required />
               </div>
               <div className="form-group">
-                <label>Usuário de Acesso</label>
-                <input className="form-control" placeholder="nome.sobrenome" value={form.username} onChange={set('username')} required />
+                <label htmlFor="cadastrousuario-campo-3">Usuário de Acesso</label>
+                <input id="cadastrousuario-campo-3" className="form-control" placeholder="nome.sobrenome" value={form.username} onChange={set('username')} required />
               </div>
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label>Senha {isEdicao && <span style={{ fontWeight: 'normal', fontSize: 12 }}>(deixe em branco para manter)</span>}</label>
-                <input type="password" className="form-control" value={form.senha} onChange={set('senha')} {...(!isEdicao ? { required: true } : {})} />
+                <label htmlFor="cadastrousuario-campo-4">Senha {isEdicao && <span style={{ fontWeight: 'normal', fontSize: 12 }}>(deixe em branco para manter)</span>}</label>
+                <input id="cadastrousuario-campo-4" type="password" className="form-control" value={form.senha} onChange={set('senha')} {...(!isEdicao ? { required: true } : {})} />
               </div>
               <div className="form-group">
-                <label>Perfil de Acesso</label>
-                <select className="form-control" value={form.perfil} onChange={set('perfil')}>
+                <label htmlFor="cadastrousuario-campo-5">Perfil de Acesso</label>
+                <select id="cadastrousuario-campo-5" className="form-control" value={form.perfil} onChange={set('perfil')}>
                   <option value="COMUM">Comum</option>
                   <option value="TECNICO">Técnico de TI</option>
                   <option value="ADMIN">Administrador</option>
                 </select>
               </div>
               <div className="form-group">
-                <label>Status</label>
-                <select className="form-control" value={form.status} onChange={set('status')}>
+                <label htmlFor="cadastrousuario-campo-6">Status</label>
+                <select id="cadastrousuario-campo-6" className="form-control" value={form.status} onChange={set('status')}>
                   <option value="ATIVO">Ativo</option>
                   <option value="INATIVO">Inativo</option>
                 </select>
