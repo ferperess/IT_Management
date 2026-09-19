@@ -53,6 +53,7 @@ export default function Chamados() {
   const requisicaoDetalhe = useRef(0);
   const travaCriacao = useRef(false);
   const travaSalvar = useRef(false);
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   usePageTitle('Chamados');
 
   async function carregarLista() {
@@ -181,6 +182,10 @@ export default function Chamados() {
     </section>
     <section className="card-box ch-workspace" aria-label="Acompanhamento de chamados">
       <div className="ch-toolbar"><div className="ch-switch" role="group" aria-label="Visualização">{['kanban', 'lista'].map(v => <button key={v} className="btn btn-secondary" aria-pressed={vista === v} onClick={() => setVista(v)}>{v === 'kanban' ? 'Kanban' : 'Lista'}</button>)}</div><button className="btn btn-secondary" onClick={carregarLista} disabled={carregando}>{carregando ? 'Carregando…' : 'Atualizar lista'}</button></div>
+      <button type="button" className="btn btn-secondary ch-filter-toggle" aria-expanded={filtrosAbertos} aria-controls="ch-filtros-painel" onClick={() => setFiltrosAbertos(aberto => !aberto)}>
+        {filtrosAbertos ? 'Recolher filtros' : 'Filtros'}{Object.values(filtros).filter(Boolean).length > 0 ? ` (${Object.values(filtros).filter(Boolean).length} ativos)` : ''}
+      </button>
+      <div id="ch-filtros-painel" data-open={filtrosAbertos}>
       <div className="ch-filters">
         <Campo id="ch-busca" label="Buscar chamado"><input id="ch-busca" type="search" className="form-control" placeholder="Número, título ou pessoa" value={filtros.busca} onChange={mudarFiltro('busca')} /></Campo>
         <Campo id="ch-status" label="Status"><select id="ch-status" className="form-control" value={filtros.status} onChange={mudarFiltro('status')}><option value="">Todos</option><Opcoes items={statusLabel} /></select></Campo>
@@ -192,6 +197,7 @@ export default function Chamados() {
         <Campo id="ch-inicio" label="Abertura a partir de"><input id="ch-inicio" type="date" className="form-control" value={filtros.inicio} onChange={mudarFiltro('inicio')} /></Campo>
         <Campo id="ch-fim" label="Abertura até"><input id="ch-fim" type="date" className="form-control" value={filtros.fim} min={filtros.inicio || undefined} onChange={mudarFiltro('fim')} /></Campo>
       </div></details>
+      </div>
       {periodoInvalido && <p role="alert" className="alert alert-erro">A data final deve ser igual ou posterior à inicial.</p>}
       <div className="ch-results"><p role="status">{filtrados.length} de {chamados.length} chamados</p>{Object.values(filtros).some(Boolean) && <button className="ch-link" onClick={() => setFiltros(filtrosVazios)}>Limpar filtros</button>}</div>
       {erroLista ? <div className="alert alert-erro" role="alert">{erroLista} <button className="ch-link" onClick={carregarLista}>Tentar novamente</button></div> : carregando ? <p className="ch-empty" role="status">Carregando chamados…</p> : !filtrados.length ? <div className="ch-empty"><h2>{chamados.length ? 'Nenhum resultado para estes filtros' : 'Nenhum chamado por aqui'}</h2><p>{chamados.length ? 'Ajuste a busca ou limpe os filtros para continuar.' : 'Use “Novo chamado” para registrar a primeira solicitação.'}</p></div> : vista === 'kanban' ?

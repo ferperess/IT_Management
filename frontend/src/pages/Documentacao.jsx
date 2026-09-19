@@ -11,6 +11,8 @@ export default function Documentacao() {
   const podeEditar = ['ADMIN', 'TECNICO'].includes(usuario?.perfil);
 
   const [docs, setDocs] = useState([]);
+  const [carregandoLista, setCarregandoLista] = useState(true);
+  const [erroLista, setErroLista] = useState('');
   const [ativos, setAtivos] = useState([]);
   const [chamados, setChamados] = useState([]);
   const [form, setForm] = useState(formVazio);
@@ -25,14 +27,17 @@ export default function Documentacao() {
   usePageTitle('Documentação');
 
   async function carregar() {
+    setCarregandoLista(true); setErroLista('');
     const [d, a, c] = await Promise.allSettled([
       api.get('/documentacoes'),
       api.get('/ativos'),
       api.get('/chamados'),
     ]);
     if (d.status === 'fulfilled') setDocs(d.value.data);
+    else setErroLista('Não foi possível carregar os documentos. Tente novamente.');
     if (a.status === 'fulfilled') setAtivos(a.value.data);
     if (c.status === 'fulfilled') setChamados(c.value.data);
+    setCarregandoLista(false);
   }
 
   useEffect(() => { carregar(); }, []);
@@ -131,6 +136,9 @@ export default function Documentacao() {
               <button className="btn btn-primary" onClick={novoForm}>+ Novo Documento</button>
             )}
           </div>
+          {carregandoLista ? <p className="list-feedback" role="status">Carregando documentos…</p> : erroLista ? (
+            <div className="alert alert-erro" role="alert">{erroLista} <button type="button" className="btn btn-secondary btn-sm" onClick={() => carregar()}>Tentar novamente</button></div>
+          ) : (
           <div className="table-scroll" role="region" aria-label="Tabela de documentos" tabIndex={0}><table className="cps-table">
             <thead>
               <tr><th>Título</th><th>Ativo Vinculado</th><th>Chamado Vinculado</th><th>Responsável</th><th>Data Registro</th><th>Ações</th></tr>
@@ -172,6 +180,7 @@ export default function Documentacao() {
               )}
             </tbody>
           </table></div>
+          )}
         </div>
 
         {/* Leitura */}

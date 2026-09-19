@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import api from '../services/api';
@@ -6,16 +6,25 @@ import usePageTitle from '../hooks/usePageTitle';
 
 export default function Usuarios() {
   const [usuarios, setUsuarios] = useState([]);
+  const [carregandoLista, setCarregandoLista] = useState(true);
+  const [erroLista, setErroLista] = useState('');
   const [busca, setBusca] = useState('');
   const navigate = useNavigate();
+  const consultaAtual = useRef(0);
 
   usePageTitle('Usuários');
 
   async function carregar(q = '') {
+    const consulta = ++consultaAtual.current;
+    setCarregandoLista(true); setErroLista('');
     try {
       const { data } = await api.get(`/usuarios${q ? `?busca=${encodeURIComponent(q)}` : ''}`);
-      setUsuarios(data);
-    } catch {}
+      if (consulta === consultaAtual.current) setUsuarios(data);
+    } catch {
+      if (consulta === consultaAtual.current) setErroLista('Não foi possível carregar os usuários. Tente novamente.');
+    } finally {
+      if (consulta === consultaAtual.current) setCarregandoLista(false);
+    }
   }
 
   useEffect(() => { carregar(); }, []);
@@ -49,6 +58,9 @@ export default function Usuarios() {
             />
             <button className="btn btn-secondary" onClick={() => carregar(busca)}>Pesquisar</button>
           </div>
+          {carregandoLista ? <p className="list-feedback" role="status">Carregando usuários…</p> : erroLista ? (
+            <div className="alert alert-erro" role="alert">{erroLista} <button type="button" className="btn btn-secondary btn-sm" onClick={() => carregar(busca)}>Tentar novamente</button></div>
+          ) : (
           <div className="table-scroll" role="region" aria-label="Tabela de usuários" tabIndex={0}><table className="cps-table">
             <thead>
               <tr>
@@ -89,6 +101,7 @@ export default function Usuarios() {
               )}
             </tbody>
           </table></div>
+          )}
         </div>
       </main>
     </>

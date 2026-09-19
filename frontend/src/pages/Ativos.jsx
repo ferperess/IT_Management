@@ -16,6 +16,8 @@ export default function Ativos() {
   const podeEditar = ['ADMIN', 'TECNICO'].includes(usuario?.perfil);
 
   const [ativos, setAtivos] = useState([]);
+  const [carregandoLista, setCarregandoLista] = useState(true);
+  const [erroLista, setErroLista] = useState('');
   const [form, setForm] = useState(formVazio);
   const [editandoId, setEditandoId] = useState(null);
   const [erro, setErro] = useState('');
@@ -25,8 +27,13 @@ export default function Ativos() {
   usePageTitle('Ativos');
 
   async function carregar() {
-    const { data } = await api.get('/ativos');
-    setAtivos(data);
+    setCarregandoLista(true); setErroLista('');
+    try {
+      const { data } = await api.get('/ativos');
+      setAtivos(data);
+    } catch {
+      setErroLista('Não foi possível carregar os ativos. Tente novamente.');
+    } finally { setCarregandoLista(false); }
   }
 
   useEffect(() => { carregar(); }, []);
@@ -92,6 +99,9 @@ export default function Ativos() {
               <button className="btn btn-primary" onClick={novoForm}>+ Cadastrar Ativo</button>
             )}
           </div>
+          {carregandoLista ? <p className="list-feedback" role="status">Carregando ativos…</p> : erroLista ? (
+            <div className="alert alert-erro" role="alert">{erroLista} <button type="button" className="btn btn-secondary btn-sm" onClick={() => carregar()}>Tentar novamente</button></div>
+          ) : (
           <div className="table-scroll" role="region" aria-label="Tabela de ativos" tabIndex={0}><table className="cps-table">
             <thead>
               <tr><th>Equipamento</th><th>Tipo</th><th>Localização</th><th>Status</th>{podeEditar && <th>Ações</th>}</tr>
@@ -120,6 +130,7 @@ export default function Ativos() {
               )}
             </tbody>
           </table></div>
+          )}
         </div>
 
         {mostrarForm && podeEditar && (

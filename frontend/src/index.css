@@ -584,3 +584,11 @@ button:disabled { cursor: not-allowed; opacity: .65; }
   outline: 3px solid var(--cps-vermelho);
   outline-offset: 3px;
 }
+
+/* Feedback da consulta antes de exibir dados ou estado vazio. */
+.list-feedback { padding: 24px 12px; color: #344154; font-size: 14px; }
+.chamados-page .ch-filter-toggle { display: none; }
+@media (max-width: 960px) {
+  .chamados-page .ch-filter-toggle { display: block; width: 100%; margin-bottom: 16px; }
+  .chamados-page #ch-filtros-painel[data-open="false"] { display: none; }
+}
