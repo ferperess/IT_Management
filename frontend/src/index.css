@@ -592,3 +592,23 @@ button:disabled { cursor: not-allowed; opacity: .65; }
   .chamados-page .ch-filter-toggle { display: block; width: 100%; margin-bottom: 16px; }
   .chamados-page #ch-filtros-painel[data-open="false"] { display: none; }
 }
+
+/* Fechamento do painel: estados explícitos e foco visível com a identidade CPS. */
+.chamados-page .ch-drawer-head .ch-close {
+  box-shadow: none;
+}
+.chamados-page .ch-drawer-head .ch-close:hover:not(:disabled) {
+  background-color: var(--cps-vermelho);
+  border-color: var(--cps-vermelho);
+  color: #fff;
+}
+.chamados-page .ch-drawer-head .ch-close:focus:not(:disabled),
+.chamados-page .ch-drawer-head .ch-close:focus-visible:not(:disabled) {
+  outline: 3px solid var(--cps-vermelho);
+  outline-offset: 3px;
+}
+.chamados-page .ch-drawer-head .ch-close:active:not(:disabled) {
+  background-color: #a30000;
+  border-color: #a30000;
+  color: #fff;
+}

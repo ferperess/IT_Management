@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import usePageTitle from '../hooks/usePageTitle';
 
-const statusLabel = { ABERTO: 'Aberto', EM_ANDAMENTO: 'Em andamento', CONCLUIDO: 'Concluído', CANCELADO: 'Cancelado' };
+import { statusLabel, formatarHistorico, formatarErroChamado } from '../utils/chamadoLabels';
 const prioLabel = { BAIXA: 'Baixa', MEDIA: 'Média', ALTA: 'Alta', CRITICA: 'Crítica' };
 const categorias = { HARDWARE: 'Hardware', SOFTWARE: 'Software', REDE: 'Rede', ACESSO: 'Acesso', IMPRESSORA: 'Impressora', AUDIOVISUAL: 'Audiovisual', OUTRO: 'Outro' };
 // Espelha validators.js; a API continua responsável por validar a transição.
@@ -59,7 +59,7 @@ export default function Chamados() {
   async function carregarLista() {
     setCarregando(true); setErroLista('');
     try { const { data } = await api.get('/chamados'); setChamados(data); }
-    catch (err) { setErroLista(err.response?.data?.erro || 'Não foi possível carregar os chamados. Tente novamente.'); }
+    catch (err) { setErroLista(formatarErroChamado(err.response?.data?.erro) || 'Não foi possível carregar os chamados. Tente novamente.'); }
     finally { setCarregando(false); }
   }
   useEffect(() => {
@@ -106,7 +106,7 @@ export default function Chamados() {
       if (versao !== requisicaoDetalhe.current) return;
       setDetalhe(data); preencherGestao(data);
     } catch (err) {
-      if (versao === requisicaoDetalhe.current) setErroDetalhe(err.response?.data?.erro || 'Não foi possível abrir o chamado. Feche este painel e tente novamente.');
+      if (versao === requisicaoDetalhe.current) setErroDetalhe(formatarErroChamado(err.response?.data?.erro) || 'Não foi possível abrir o chamado. Feche este painel e tente novamente.');
     } finally { if (versao === requisicaoDetalhe.current) setBuscandoDetalhe(false); }
   }
   async function criar(e) {
@@ -123,7 +123,7 @@ export default function Chamados() {
       setAvisoClassificacao(data.aviso ? `Chamado #${data.id}: ${data.aviso}` : '');
       setMensagem(`Chamado #${data.id} registrado com sucesso`);
       novoBotao.current?.focus();
-    } catch (err) { setErroNovo(err.response?.data?.erro || 'Não foi possível registrar o chamado. Seus dados foram preservados.'); }
+    } catch (err) { setErroNovo(formatarErroChamado(err.response?.data?.erro) || 'Não foi possível registrar o chamado. Seus dados foram preservados.'); }
     finally { travaCriacao.current = false; setCriando(false); }
   }
   async function atualizar(e) {
@@ -149,7 +149,7 @@ export default function Chamados() {
         setDetalhe(atualizado.data); preencherGestao(atualizado.data);
         setChamados(lista => lista.map(c => c.id === data.id ? atualizado.data : c));
       } catch { setErroDetalhe('Alterações salvas, mas não foi possível atualizar o histórico. Reabra o chamado para tentar novamente.'); }
-    } catch (err) { setErroDetalhe(err.response?.data?.erro || 'Não foi possível salvar. Suas alterações foram preservadas.'); }
+    } catch (err) { setErroDetalhe(formatarErroChamado(err.response?.data?.erro) || 'Não foi possível salvar. Suas alterações foram preservadas.'); }
     finally { travaSalvar.current = false; setSalvando(false); }
   }
   const mudarFiltro = key => e => setFiltros(f => ({ ...f, [key]: e.target.value }));
@@ -213,7 +213,7 @@ export default function Chamados() {
         })}</div></> : <div className="ch-table-wrap" role="region" aria-label="Lista de chamados" tabIndex={0}><table className="cps-table"><thead><tr>{['Chamado', 'Solicitante / responsável', 'Prioridade', 'Status', 'Abertura'].map(t => <th scope="col" key={t}>{t}</th>)}</tr></thead><tbody>{filtrados.map(c => <tr key={c.id}><td><button className="ch-title-link" onClick={() => abrirDetalhe(c.id)}>#{c.id} · {c.titulo}</button><span className="ch-cell-sub">{categorias[c.categoria] || 'Outro'}{c.ativo ? ` · ${c.ativo.nome}` : ''}</span></td><td>{c.solicitante?.nome || '—'}<span className="ch-cell-sub">{c.tecnico?.nome || 'Não atribuído'}</span></td><td><Badge valor={c.prioridade} prioridade /></td><td><Badge valor={c.status} /></td><td><time dateTime={c.criado_em}>{fmtData(c.criado_em)}</time></td></tr>)}</tbody></table></div>}
     </section>
     <dialog ref={dialog} className="ch-drawer" aria-labelledby="ch-detalhe-titulo" onCancel={e => { e.preventDefault(); fecharDetalhe(); }}>
-      <div className="ch-drawer-head"><h2 id="ch-detalhe-titulo">{detalhe ? `Chamado #${detalhe.id}` : 'Detalhes do chamado'}</h2><button className="btn btn-secondary" autoFocus disabled={salvando} onClick={fecharDetalhe}>Fechar</button></div>
+      <div className="ch-drawer-head"><h2 id="ch-detalhe-titulo">{detalhe ? `Chamado #${detalhe.id}` : 'Detalhes do chamado'}</h2><button className="btn btn-secondary ch-close" type="button" autoFocus disabled={salvando} onClick={fecharDetalhe}>Fechar</button></div>
       {buscandoDetalhe && <p role="status">Carregando detalhes…</p>}
       {erroDetalhe && <div className="alert alert-erro" role="alert">{erroDetalhe}</div>}
       {sucessoDetalhe && <div className="alert alert-sucesso" role="status">{sucessoDetalhe}</div>}
@@ -225,7 +225,7 @@ export default function Chamados() {
           <Campo id="ch-editar-categoria" label="Categoria"><select id="ch-editar-categoria" className="form-control" value={gestao.categoria} onChange={mudarGestao('categoria')}><Opcoes items={categorias} /></select></Campo>
           <Campo id="ch-tecnico" label="Responsável"><select id="ch-tecnico" className="form-control" value={gestao.id_tecnico} onChange={mudarGestao('id_tecnico')}><option value="">Não atribuído</option>{detalhe.id_tecnico && !tecnicos.some(t => t.id === detalhe.id_tecnico) && detalhe.id_tecnico !== usuario.id && <option value={detalhe.id_tecnico}>{detalhe.tecnico?.nome || 'Responsável atual'}</option>}{!tecnicos.some(t => t.id === usuario.id) && <option value={usuario.id}>{usuario.nome} (eu)</option>}{tecnicos.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}</select></Campo>
         </div><Campo id="ch-comentario" label="Adicionar comentário ou registrar solução"><textarea id="ch-comentario" className="form-control" rows={3} value={gestao.comentario} onChange={mudarGestao('comentario')} /></Campo><button type="submit" className="btn btn-primary">{salvando ? 'Salvando…' : 'Salvar alterações'}</button></fieldset></form>}
-        <h3>Histórico de atendimento</h3>{detalhe.historico?.length ? <ol className="ch-history">{detalhe.historico.map(h => <li key={h.id}><p>{h.comentario}</p><span>{h.usuario?.nome || 'Sistema'} · {fmtData(h.criado_em)}</span></li>)}</ol> : <p className="ch-muted">Nenhuma ação registrada.</p>}
+        <h3>Histórico de atendimento</h3>{detalhe.historico?.length ? <ol className="ch-history">{detalhe.historico.map(h => <li key={h.id}><p>{formatarHistorico(h.comentario)}</p><span>{h.usuario?.nome || 'Sistema'} · {fmtData(h.criado_em)}</span></li>)}</ol> : <p className="ch-muted">Nenhuma ação registrada.</p>}
       </>}
     </dialog>
   </main></>;
