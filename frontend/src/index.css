@@ -552,3 +552,35 @@ button:disabled { cursor: not-allowed; opacity: .65; }
   .nav-header nav { max-height: none; }
   .login-wrapper { align-items: flex-start; }
 }
+
+/* Indicadores curtos não devem herdar a quebra de nomes e e-mails da tabela. */
+.badge, .chamados-page .ch-badge {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+  flex-shrink: 0;
+}
+
+/* TCC: neumorfismo no painel; contraste explícito nos controles do login. */
+.login-box .form-control {
+  background-color: #fff;
+  border: 1px solid #788597;
+  box-shadow: none;
+}
+.login-box .form-control:focus,
+.login-box .form-control:focus-visible {
+  border-color: var(--cps-vermelho);
+  outline: 3px solid var(--cps-vermelho);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+.login-box .btn-primary,
+.login-box .btn-primary:hover,
+.login-box .btn-primary:active {
+  box-shadow: none;
+}
+.login-box .btn-primary:hover { background-color: #a30000; }
+.login-box .btn-primary:focus-visible {
+  outline: 3px solid var(--cps-vermelho);
+  outline-offset: 3px;
+}
