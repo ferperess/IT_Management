@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 jest.mock('../prisma', () => ({
   uSUARIOS: {
     findUnique: jest.fn(),
+    updateMany: jest.fn().mockResolvedValue({ count: 1 }),
   },
 }));
 
@@ -101,5 +102,38 @@ describe('authController: login', () => {
 
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({ erro: 'Erro interno ao realizar login.' });
+  });
+});
+
+describe('migração Argon2id', () => {
+  const { hashPassword, verifyPassword } = require('../utils/passwords');
+  const user = { id: 9n, nome: 'Teste', email: 'teste@example.com', perfil: 'COMUM', status: 'ATIVO' };
+  beforeEach(() => { jest.clearAllMocks(); prisma.uSUARIOS.updateMany.mockResolvedValue({ count: 1 }); });
+  test('migra bcrypt com condição de concorrência sem expor hash na resposta', async () => {
+    const oldHash = await bcrypt.hash('senha123', 10);
+    prisma.uSUARIOS.findUnique.mockResolvedValue({ ...user, senha_hash: oldHash });
+    const res = mockRes();
+    await login({ body: { email: user.email, senha: 'senha123' } }, res);
+    const args = prisma.uSUARIOS.updateMany.mock.calls[0][0];
+    expect(args.where).toEqual({ id: user.id, senha_hash: oldHash, status: 'ATIVO' });
+    expect(await verifyPassword('senha123', args.data.senha_hash)).toBe(true);
+    expect(args.data.senha_hash).toMatch(/^\$argon2id\$/);
+    expect(res.json.mock.calls[0][0].token).toBeDefined();
+    expect(res.json.mock.calls[0][0].usuario.senha_hash).toBeUndefined();
+  });
+  test('login Argon2id não regrava a senha', async () => {
+    prisma.uSUARIOS.findUnique.mockResolvedValue({ ...user, senha_hash: await hashPassword('senha123') });
+    const res = mockRes();
+    await login({ body: { email: user.email, senha: 'senha123' } }, res);
+    expect(res.json.mock.calls[0][0].token).toBeDefined();
+    expect(prisma.uSUARIOS.updateMany).not.toHaveBeenCalled();
+  });
+  test('conflito na migração não emite token', async () => {
+    prisma.uSUARIOS.findUnique.mockResolvedValue({ ...user, senha_hash: await bcrypt.hash('senha123', 10) });
+    prisma.uSUARIOS.updateMany.mockResolvedValue({ count: 0 });
+    const res = mockRes();
+    await login({ body: { email: user.email, senha: 'senha123' } }, res);
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json.mock.calls[0][0].token).toBeUndefined();
   });
 });

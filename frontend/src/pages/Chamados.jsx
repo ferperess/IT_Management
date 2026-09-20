@@ -129,8 +129,8 @@ export default function Chamados() {
   async function atualizar(e) {
     e.preventDefault();
     if (travaSalvar.current || !detalhe) return;
-    if (detalhe.status === 'CANCELADO') {
-      setErroDetalhe('Chamados cancelados são somente leitura e não podem ser alterados.');
+    if (['CONCLUIDO', 'CANCELADO'].includes(detalhe.status)) {
+      setErroDetalhe('Chamados concluídos ou cancelados são somente leitura e não podem ser alterados.');
       return;
     }
     travaSalvar.current = true; setSalvando(true); setErroDetalhe(''); setSucessoDetalhe('');
@@ -218,8 +218,8 @@ export default function Chamados() {
       {erroDetalhe && <div className="alert alert-erro" role="alert">{erroDetalhe}</div>}
       {sucessoDetalhe && <div className="alert alert-sucesso" role="status">{sucessoDetalhe}</div>}
       {detalhe && <><h3 className="ch-detail-title">{detalhe.titulo}</h3><div className="ch-detail-badges"><Badge valor={detalhe.status} /><Badge valor={detalhe.prioridade} prioridade /></div><dl className="ch-detail-meta"><dt>Solicitante</dt><dd>{detalhe.solicitante?.nome || '—'}</dd><dt>Abertura</dt><dd>{fmtData(detalhe.criado_em)}</dd><dt>Categoria</dt><dd>{categorias[detalhe.categoria] || 'Outro'}</dd><dt>Responsável</dt><dd>{detalhe.tecnico?.nome || 'Não atribuído'}</dd><dt>Ativo</dt><dd>{detalhe.ativo?.nome || 'Sem vínculo'}</dd></dl><h3>Descrição</h3><p className="ch-description">{detalhe.descricao}</p>
-        {detalhe.status === 'CANCELADO' && <p className="ch-notice" role="status">Este chamado foi cancelado e está disponível somente para consulta</p>}
-        {podeGerenciar && detalhe.status !== 'CANCELADO' && <form className="ch-management" onSubmit={atualizar}><h3>Gestão técnica</h3><fieldset disabled={salvando}><div className="ch-form-grid">
+        {['CONCLUIDO', 'CANCELADO'].includes(detalhe.status) && <p className="ch-notice" role="status">Este chamado foi {detalhe.status === 'CONCLUIDO' ? 'concluído' : 'cancelado'} e está disponível somente para consulta</p>}
+        {podeGerenciar && !['CONCLUIDO', 'CANCELADO'].includes(detalhe.status) && <form className="ch-management" onSubmit={atualizar}><h3>Gestão técnica</h3><fieldset disabled={salvando}><div className="ch-form-grid">
           <Campo id="ch-editar-status" label="Status"><select id="ch-editar-status" className="form-control" value={gestao.status} onChange={mudarGestao('status')}>{[detalhe.status, ...(transicoes[detalhe.status] || [])].map(s => <option key={s} value={s}>{statusLabel[s]}</option>)}</select></Campo>
           <Campo id="ch-editar-prioridade" label="Prioridade"><select id="ch-editar-prioridade" className="form-control" value={gestao.prioridade} onChange={mudarGestao('prioridade')}><Opcoes items={prioLabel} /></select></Campo>
           <Campo id="ch-editar-categoria" label="Categoria"><select id="ch-editar-categoria" className="form-control" value={gestao.categoria} onChange={mudarGestao('categoria')}><Opcoes items={categorias} /></select></Campo>
