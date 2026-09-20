@@ -1,5 +1,5 @@
 const { toId } = require('../utils/ids');
-const bcrypt = require('bcryptjs');
+const { hashPassword } = require('../utils/passwords');
 const prisma = require('../prisma');
 const {
   PERFIS_VALIDOS,
@@ -77,7 +77,7 @@ async function criar_usuario(req, res) {
       return res.status(400).json({ erro: `Status inválido. Valores aceitos: ${STATUS_USUARIO_VALIDOS.join(', ')}.` });
     }
 
-    const hash = await bcrypt.hash(senha, 10);
+    const hash = await hashPassword(senha);
     const u = await prisma.uSUARIOS.create({
       data: { nome, email, username, senha_hash: hash, perfil: perfil || 'COMUM', status: status || 'ATIVO' },
       select: { id: true, nome: true, email: true, username: true, perfil: true, status: true },
@@ -116,7 +116,7 @@ async function atualizar_usuario(req, res) {
     }
 
     const data = { nome, email, username, perfil, status };
-    if (senha) data.senha_hash = await bcrypt.hash(senha, 10);
+    if (senha) data.senha_hash = await hashPassword(senha);
     Object.keys(data).forEach(k => data[k] === undefined && delete data[k]);
 
     const u = await prisma.uSUARIOS.update({
