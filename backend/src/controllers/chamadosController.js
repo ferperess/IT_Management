@@ -113,8 +113,8 @@ async function atualizar_chamado(req, res) {
 
     const chamado = await prisma.cHAMADOS.findUnique({ where: { id: toId(id) } });
     if (!chamado) return res.status(404).json({ erro: 'Chamado não encontrado.' });
-    if (chamado.status === 'CANCELADO') {
-      return res.status(409).json({ erro: 'Chamados cancelados são somente leitura e não podem ser alterados.' });
+    if (['CONCLUIDO', 'CANCELADO'].includes(chamado.status)) {
+      return res.status(409).json({ erro: 'Chamados concluídos ou cancelados são somente leitura e não podem ser alterados.' });
     }
 
     if (status) {
@@ -153,7 +153,7 @@ async function atualizar_chamado(req, res) {
     if (categoria) data.categoria = categoria;
     if (id_tecnico !== undefined) data.id_tecnico = id_tecnico ? toId(id_tecnico) : null;
 
-    // A condição é conferida também na escrita: protege contra cancelamento
+    // A condição é conferida também na escrita: protege contra conclusão ou cancelamento
     // em outra sessão entre a leitura inicial e o salvamento. O histórico e
     // a atualização são confirmados juntos, sob o mesmo bloqueio da linha.
     const updated = await prisma.$transaction(async tx => {
