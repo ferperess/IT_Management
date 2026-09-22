@@ -47,21 +47,25 @@ export default function Navbar() {
               </NavLink>
             </li>
           )}
+          {usuario?.perfil !== 'COMUM' && (
           <li>
             <NavLink to="/ativos" className={({ isActive }) => isActive ? 'active' : ''}>
               Ativos
             </NavLink>
           </li>
+          )}
           <li>
             <NavLink to="/chamados" className={({ isActive }) => isActive ? 'active' : ''}>
               Chamados
             </NavLink>
           </li>
+          {usuario?.perfil !== 'COMUM' && (
           <li>
             <NavLink to="/documentacao" className={({ isActive }) => isActive ? 'active' : ''}>
               Documentação
             </NavLink>
           </li>
+          )}
         </ul>
       </nav>
       <div className="nav-sair">

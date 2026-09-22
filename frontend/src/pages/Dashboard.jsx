@@ -67,7 +67,7 @@ export default function Dashboard() {
           </div>
           <div className="card">
             <div className="card-title">Em Andamento</div>
-            <div className="card-value">{String(stats.andamento).padStart(2, '0')}</div>
+            <div className="card-value">{stats.andamento}</div>
           </div>
           <div className="card">
             <div className="card-title">Concluídos</div>
