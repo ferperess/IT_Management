@@ -35,13 +35,11 @@ export default function Navbar() {
       </button>
       <nav id="navegacao-principal" aria-label="Navegação principal" className={menuAberto ? 'nav-open' : ''} onClick={event => { if (event.target.closest('a') && menuAberto) { menuBotao.current?.focus(); setMenuAberto(false); } }}>
         <ul>
-          {usuario?.perfil !== 'COMUM' && (
           <li>
             <NavLink to="/dashboard" className={({ isActive }) => isActive ? 'active' : ''}>
               Dashboard
             </NavLink>
           </li>
-          )}
           {usuario?.perfil === 'ADMIN' && (
             <li>
               <NavLink to="/usuarios" className={({ isActive }) => isActive ? 'active' : ''}>
