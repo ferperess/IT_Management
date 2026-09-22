@@ -35,11 +35,13 @@ export default function Navbar() {
       </button>
       <nav id="navegacao-principal" aria-label="Navegação principal" className={menuAberto ? 'nav-open' : ''} onClick={event => { if (event.target.closest('a') && menuAberto) { menuBotao.current?.focus(); setMenuAberto(false); } }}>
         <ul>
+          {usuario?.perfil !== 'COMUM' && (
           <li>
             <NavLink to="/dashboard" className={({ isActive }) => isActive ? 'active' : ''}>
               Dashboard
             </NavLink>
           </li>
+          )}
           {usuario?.perfil === 'ADMIN' && (
             <li>
               <NavLink to="/usuarios" className={({ isActive }) => isActive ? 'active' : ''}>
@@ -47,21 +49,25 @@ export default function Navbar() {
               </NavLink>
             </li>
           )}
+          {usuario?.perfil !== 'COMUM' && (
           <li>
             <NavLink to="/ativos" className={({ isActive }) => isActive ? 'active' : ''}>
               Ativos
             </NavLink>
           </li>
+          )}
           <li>
             <NavLink to="/chamados" className={({ isActive }) => isActive ? 'active' : ''}>
               Chamados
             </NavLink>
           </li>
+          {usuario?.perfil !== 'COMUM' && (
           <li>
             <NavLink to="/documentacao" className={({ isActive }) => isActive ? 'active' : ''}>
               Documentação
             </NavLink>
           </li>
+          )}
         </ul>
       </nav>
       <div className="nav-sair">
