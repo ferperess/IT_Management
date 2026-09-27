@@ -46,7 +46,7 @@ A aplicação abre em: http://localhost:5173
 
 ## Testes
 
-Os testes unitários cobrem os controllers, middlewares e o serviço de IA. Eles rodam de forma isolada, sem precisar de conexão com o banco de dados ou com a API do OpenRouter.
+Os testes unitários cobrem controllers, middlewares, serviços de SLA/senhas e a integração de classificação com OpenRouter. Eles rodam isoladamente, sem conexão com banco de dados ou com a API externa.
 
 ### Executar os testes
 
@@ -66,13 +66,18 @@ npm run test:coverage
 
 ```
 backend/src/tests/
-├── setup.js                      # Variáveis de ambiente para o ambiente de teste
-├── auth.middleware.test.js        # Middleware de autenticação JWT e controle de perfil
-├── auth.controller.test.js        # Login: campos obrigatórios, credenciais, token
-├── usuarios.controller.test.js    # CRUD de usuários e inativação
-├── ativos.controller.test.js      # CRUD de ativos de TI
-├── chamados.controller.test.js    # Abertura, atualização e dashboard de chamados
-└── apiService.test.js             # Classificação de prioridade por IA e sanitização
+├── setup.js                       # Configuração de ambiente para testes
+├── auth.controller.test.js        # Login e autenticação
+├── auth.middleware.test.js        # JWT e autorização por perfil
+├── usuarios.controller.test.js    # Usuários e inativação
+├── ativos.controller.test.js      # Cadastro, atualização e remoção de ativos
+├── chamados.controller.test.js    # Chamados, SLA e dashboard
+├── documentacoes.links.test.js    # Vínculos entre chamados e documentação
+├── passwords.controllers.test.js  # Fluxos de senha nos controllers
+├── passwords.test.js              # Hash e verificação de senhas
+├── sla.controller.test.js         # Pausas e operações de SLA
+├── sla.service.test.js            # Cálculos de SLA
+└── apiService.test.js             # Classificação OpenRouter e validação da resposta
 ```
 
 ### O que é testado
@@ -84,7 +89,10 @@ backend/src/tests/
 | Usuários | Listar, buscar por ID, criar com campos faltando, e-mail duplicado, atualizar, inativar |
 | Ativos | Listar, criar com campos faltando, criar com sucesso, atualizar, remover |
 | Chamados | Listar, buscar, criar sem campos obrigatórios, ativo inexistente, atualizar, dashboard |
-| Serviço de IA | Classificação ALTA/BAIXA/MEDIA/CRÍTICA, valor inválido, sanitização, limite de caracteres |
+| Serviço OpenRouter | Classificação, resposta inválida, normalização e limites de entrada |
+| SLA | Prazos, pausas, transições e resultados de atendimento/resolução |
+| Documentação | Preservação e bloqueio de vínculos com chamados |
+| Senhas | Hash, verificação e fluxos dos controllers |
 
 ---
 
@@ -102,30 +110,40 @@ backend/src/tests/
 IT_Management/
 ├── backend/
 │   ├── prisma/
-│   │   ├── schema.prisma     # Modelos do banco de dados
-│   │   └── migrations/       # Histórico de migrações
+│   │   ├── schema.prisma             # Modelos PostgreSQL
+│   │   └── migrations/               # Baseline PostgreSQL e migrações incrementais
+│   ├── sql/
+│   │   └── sla_documentacoes.sql     # Atualização manual para instalações existentes
 │   ├── src/
-│   │   ├── controllers/      # Lógica de negócio (ativos, chamados, usuários, etc.)
-│   │   ├── middlewares/      # Autenticação JWT e controle de perfil
-│   │   ├── routes/           # Endpoints REST
-│   │   ├── services/         # Integração com IA (OpenRouter/Claude)
-│   │   ├── tests/            # Testes unitários
-│   │   └── server.js         # Entry point Express
-│   ├── .env                  # Variáveis de ambiente (chaves e segredos)
+│   │   ├── config/                   # Políticas de SLA
+│   │   ├── controllers/              # Lógica de negócio por domínio
+│   │   ├── middlewares/              # Autenticação JWT e autorização
+│   │   ├── routes/                   # Endpoints REST
+│   │   ├── services/                 # OpenRouter, SLA e escrita transacional
+│   │   ├── tests/                    # Testes unitários e de controllers
+│   │   ├── utils/                    # IDs e senhas
+│   │   ├── prisma.js                 # Cliente Prisma
+│   │   ├── validators.js             # Validações e regras de domínio
+│   │   └── server.js                 # Inicialização Express
 │   └── package.json
-└── frontend/
-    ├── src/
-    │   ├── assets/           # Ícone da aplicação
-    │   ├── components/       # Navbar
-    │   ├── context/          # AuthContext (JWT)
-    │   ├── hooks/            # usePageTitle
-    │   ├── pages/            # Login, Dashboard, Ativos, Chamados, Usuários, Documentação
-    │   ├── services/         # Axios configurado
-    │   ├── App.jsx           # Roteamento
-    │   ├── index.css         # Estilos globais
-    │   └── main.jsx          # Entry point React
-    ├── index.html
-    └── vite.config.js        # Proxy /api → localhost:3001
+├── frontend/
+│   ├── src/
+│   │   ├── assets/                   # Recursos estáticos
+│   │   ├── components/              # Navbar, seleção múltipla e painel SLA
+│   │   ├── context/                  # Estado de autenticação
+│   │   ├── hooks/                    # Hooks compartilhados
+│   │   ├── pages/                    # Login, dashboard e telas do sistema
+│   │   ├── services/                 # Cliente HTTP da API
+│   │   ├── utils/                    # Labels e apresentação de chamados
+│   │   ├── App.jsx                   # Rotas da aplicação
+│   │   ├── index.css                 # Estilos globais
+│   │   └── main.jsx                  # Inicialização React
+│   ├── index.html
+│   ├── package.json
+│   └── vite.config.js                # Proxy /api para o backend
+├── .gitignore
+├── Contributors.md
+└── README.md
 ```
 
 ---
