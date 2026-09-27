@@ -18,19 +18,11 @@ npm run dev
 
 O servidor sobe em: http://localhost:3001
 
-### Migrações do banco PostgreSQL
+### Banco de dados
 
-O schema e as migrações Prisma usam PostgreSQL. Em uma instalação vazia, aplique as migrações com `npx prisma migrate deploy` dentro de `backend/`.
+O banco PostgreSQL é mantido no Supabase. Alterações de schema devem ser registradas em scripts SQL versionados em `backend/sql/`, revisadas pela equipe e aplicadas ao Supabase pelo fluxo definido pelos desenvolvedores. Atualize também `backend/prisma/schema.prisma` para manter o Prisma Client sincronizado com o banco. Este projeto não usa migrations do Prisma nem bancos locais por desenvolvedor.
 
-No Supabase já populado e sem a tabela `_prisma_migrations`, registre a baseline existente antes de usar `migrate deploy` em atualizações futuras:
-
-```bash
-cd backend
-npx prisma migrate resolve --applied 20260927120000_postgresql_baseline
-npx prisma migrate deploy
-```
-
-O primeiro comando registra a baseline sem executar DDL; o segundo aplica os índices e checks incrementais. Não execute `migrate deploy` antes de registrar a baseline em um banco já populado.
+O script `backend/sql/sla_documentacoes.sql` atende instalações que ainda não receberam as alterações de SLA e documentação. Antes de executá-lo, confira se os objetos que ele cria ou altera ainda não existem no projeto Supabase.
 
 ### 2. Frontend
 
@@ -110,8 +102,7 @@ backend/src/tests/
 IT_Management/
 ├── backend/
 │   ├── prisma/
-│   │   ├── schema.prisma             # Modelos PostgreSQL
-│   │   └── migrations/               # Baseline PostgreSQL e migrações incrementais
+│   │   └── schema.prisma             # Modelos PostgreSQL usados pelo Prisma Client
 │   ├── sql/
 │   │   └── sla_documentacoes.sql     # Atualização manual para instalações existentes
 │   ├── src/
