@@ -78,23 +78,25 @@ export default function Dashboard() {
           </div>
           <div className="card">
             <div className="card-title">Em Andamento</div>
-            <div className="card-value">{String(stats.andamento).padStart(2, '0')}</div>
+            <div className="card-value">{stats.andamento ?? 0}</div>
           </div>
           <div className="card">
             <div className="card-title">Aguardando usuário</div>
             <div className="card-value">{stats.aguardando ?? 0}</div>
           </div>
         </div>
-        <div className="cards-grid dashboard-sla-cards">
-          <div className="card">
-            <div className="card-title">Tempo médio até primeiro atendimento (SLA)</div>
-            <div className="card-value">{formatarHoras(stats.tempoMedioAtendimentoHoras)}</div>
+        {podeVerRelatorios && (
+          <div className="cards-grid dashboard-sla-cards">
+            <div className="card">
+              <div className="card-title">Tempo médio até primeiro atendimento (SLA)</div>
+              <div className="card-value">{formatarHoras(stats.tempoMedioAtendimentoHoras)}</div>
+            </div>
+            <div className="card">
+              <div className="card-title">Tempo médio de resolução (SLA)</div>
+              <div className="card-value">{formatarHoras(stats.tempoMedioResolucaoHoras)}</div>
+            </div>
           </div>
-          <div className="card">
-            <div className="card-title">Tempo médio de resolução (SLA)</div>
-            <div className="card-value">{formatarHoras(stats.tempoMedioResolucaoHoras)}</div>
-          </div>
-        </div>
+        )}
 
         {/* Ações rápidas */}
         {podeVerRelatorios && (
