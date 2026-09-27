@@ -1,4 +1,6 @@
 jest.mock('../prisma', () => ({
+  cHAMADOS: { findFirst: jest.fn() },
+  dOCUMENTACOES: { findFirst: jest.fn() },
   aTIVOS: {
     findMany: jest.fn(),
     create: jest.fn(),
@@ -68,6 +70,18 @@ describe('ativosController: criar', () => {
     expect(res.json).toHaveBeenCalledWith(novoAtivo);
   });
 
+  test('aceita NOTEBOOK e normaliza o status legado de manutenção', async () => {
+    const novoAtivo = { id: 2, nome: 'Notebook', tipo: 'NOTEBOOK', localizacao: 'Sala 1', status: 'MANUTENCAO' };
+    prisma.aTIVOS.create.mockResolvedValue(novoAtivo);
+    const req = { body: { nome: 'Notebook', tipo: 'NOTEBOOK', localizacao: 'Sala 1', status: 'EM_MANUTENCAO' } };
+    const res = mockRes();
+
+    await criar(req, res);
+
+    expect(prisma.aTIVOS.create).toHaveBeenCalledWith({ data: expect.objectContaining({ tipo: 'NOTEBOOK', status: 'MANUTENCAO' }) });
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
   test('deve retornar 500 em erro de banco', async () => {
     prisma.aTIVOS.create.mockRejectedValue(new Error('DB error'));
     const req = { body: { nome: 'Notebook', tipo: 'COMPUTADOR', localizacao: 'Sala 1' } };
@@ -107,7 +121,11 @@ describe('ativosController: atualizar', () => {
 });
 
 describe('ativosController: remover', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    prisma.cHAMADOS.findFirst.mockResolvedValue(null);
+    prisma.dOCUMENTACOES.findFirst.mockResolvedValue(null);
+  });
 
   test('deve remover ativo com sucesso', async () => {
     prisma.aTIVOS.delete.mockResolvedValue({});
@@ -128,5 +146,16 @@ describe('ativosController: remover', () => {
 
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith({ erro: 'Ativo não encontrado.' });
+  });
+
+  test('não remove ativo com vínculos históricos', async () => {
+    prisma.cHAMADOS.findFirst.mockResolvedValue({ id: 4n, status: 'CONCLUIDO' });
+    const req = { params: { id: '1' } };
+    const res = mockRes();
+
+    await remover(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(prisma.aTIVOS.delete).not.toHaveBeenCalled();
   });
 });

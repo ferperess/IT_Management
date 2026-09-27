@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import usePageTitle from '../hooks/usePageTitle';
 
-const formVazio = { titulo: '', descricao: '', link_externo: '', id_ativo: '', id_chamado: '' };
+const formVazio = { titulo: '', descricao: '', link_externo: '', id_ativo: '' };
 
 export default function Documentacao() {
   const { usuario } = useAuth();
@@ -14,7 +14,7 @@ export default function Documentacao() {
   const [carregandoLista, setCarregandoLista] = useState(true);
   const [erroLista, setErroLista] = useState('');
   const [ativos, setAtivos] = useState([]);
-  const [chamados, setChamados] = useState([]);
+  const [salvando, setSalvando] = useState(false);
   const [form, setForm] = useState(formVazio);
   const [arquivo, setArquivo] = useState(null);
   const [editandoId, setEditandoId] = useState(null);
@@ -23,24 +23,25 @@ export default function Documentacao() {
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
   const [baixando, setBaixando] = useState(null);
+  const formTitulo = useRef(null);
+  const formBotao = useRef(null);
 
   usePageTitle('Documentação');
 
   async function carregar() {
     setCarregandoLista(true); setErroLista('');
-    const [d, a, c] = await Promise.allSettled([
+    const [d, a] = await Promise.allSettled([
       api.get('/documentacoes'),
       api.get('/ativos'),
-      api.get('/chamados'),
     ]);
     if (d.status === 'fulfilled') setDocs(d.value.data);
     else setErroLista('Não foi possível carregar os documentos. Tente novamente.');
     if (a.status === 'fulfilled') setAtivos(a.value.data);
-    if (c.status === 'fulfilled') setChamados(c.value.data);
     setCarregandoLista(false);
   }
 
   useEffect(() => { carregar(); }, []);
+  useEffect(() => { if (mostrarForm) formTitulo.current?.focus(); }, [mostrarForm]);
 
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
 
@@ -59,7 +60,6 @@ export default function Documentacao() {
       descricao: d.descricao || '',
       link_externo: d.link_externo || '',
       id_ativo: d.id_ativo || '',
-      id_chamado: d.id_chamado || '',
     });
     setArquivo(null);
     setMostrarForm(true);
@@ -68,14 +68,15 @@ export default function Documentacao() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (salvando) return;
+    setSalvando(true);
     setErro(''); setSucesso('');
     try {
       const fd = new FormData();
       fd.append('titulo', form.titulo);
       fd.append('descricao', form.descricao);
       fd.append('link_externo', form.link_externo);
-      if (form.id_ativo) fd.append('id_ativo', form.id_ativo);
-      if (form.id_chamado) fd.append('id_chamado', form.id_chamado);
+      fd.append('id_ativo', form.id_ativo);
       if (arquivo) fd.append('arquivo', arquivo);
 
       if (editandoId) {
@@ -89,7 +90,7 @@ export default function Documentacao() {
       carregar();
     } catch (err) {
       setErro(err.response?.data?.erro || 'Erro ao salvar documento.');
-    }
+    } finally { setSalvando(false); }
   }
 
   async function baixarArquivo(doc) {
@@ -129,11 +130,57 @@ export default function Documentacao() {
     <>
       <Navbar />
       <main>
+        {podeEditar && (
+          <div className="card-box documentation-form-card" hidden={!mostrarForm}>
+            <section id="documentacao-formulario" className="documentation-form" aria-labelledby="documentacao-formulario-titulo">
+              <h2 id="documentacao-formulario-titulo">{editandoId ? 'Editar Documento' : 'Cadastrar Documentação'}</h2>
+              <hr className="divider" />
+              {erro && <div className="alert alert-erro">{erro}</div>}
+              {sucesso && <div className="alert alert-sucesso">{sucesso}</div>}
+              <form onSubmit={handleSubmit} style={{ marginTop: 15 }}>
+                <div className="form-group">
+                  <label htmlFor="documentacao-campo-1">Título do Documento</label>
+                  <input ref={formTitulo} id="documentacao-campo-1" className="form-control" placeholder="Título descritivo" value={form.titulo} onChange={set('titulo')} required />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="documentacao-campo-2">Descrição</label>
+                  <textarea id="documentacao-campo-2" className="form-control" rows={3} value={form.descricao} onChange={set('descricao')} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="documentacao-campo-3">Ativo Relacionado (Opcional)</label>
+                  <select id="documentacao-campo-3" className="form-control" value={form.id_ativo} onChange={set('id_ativo')}>
+                    <option value="">— Nenhum —</option>
+                    {ativos.map(a => (
+                      <option key={a.id} value={a.id}>{a.nome} ({a.tipo})</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="documentacao-campo-5">Link Externo (Opcional)</label>
+                    <input id="documentacao-campo-5" type="url" className="form-control" placeholder="https://..." value={form.link_externo} onChange={set('link_externo')} />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="documentacao-campo-6">Arquivo (PDF, DOC, DOCX, JPG ou PNG)</label>
+                    <input id="documentacao-campo-6" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="form-control" style={{ padding: 7 }} onChange={e => setArquivo(e.target.files[0])} />
+                    {editandoId && <small style={{ color: '#999' }}>Deixe em branco para manter o arquivo atual.</small>}
+                  </div>
+                </div>
+                <div className="form-actions">
+                  <button type="button" className="btn btn-secondary" onClick={() => { setMostrarForm(false); formBotao.current?.focus(); }}>Recolher e manter rascunho</button>
+                  <button type="submit" className="btn btn-primary" disabled={salvando}>{salvando ? 'Salvando…' : 'Salvar Documento'}</button>
+                </div>
+              </form>
+            </section>
+          </div>
+        )}
         <div className="card-box">
           <div className="page-header">
             <h2>Base de Conhecimento / Documentação</h2>
             {podeEditar && (
-              <button className="btn btn-primary" onClick={novoForm}>+ Novo Documento</button>
+              <button ref={formBotao} className="btn btn-primary" aria-expanded={mostrarForm} aria-controls="documentacao-formulario" onClick={() => mostrarForm ? setMostrarForm(false) : novoForm()}>
+                {mostrarForm ? 'Recolher formulário' : '+ Novo Documento'}
+              </button>
             )}
           </div>
           {carregandoLista ? <p className="list-feedback" role="status">Carregando documentos…</p> : erroLista ? (
@@ -141,14 +188,13 @@ export default function Documentacao() {
           ) : (
           <div className="table-scroll" role="region" aria-label="Tabela de documentos" tabIndex={0}><table className="cps-table">
             <thead>
-              <tr><th>Título</th><th>Ativo Vinculado</th><th>Chamado Vinculado</th><th>Responsável</th><th>Data Registro</th><th>Ações</th></tr>
+              <tr><th>Título</th><th>Ativo Vinculado</th><th>Responsável</th><th>Data Registro</th><th>Ações</th></tr>
             </thead>
             <tbody>
               {docs.map(d => (
                 <tr key={d.id}>
                   <td>{d.titulo}</td>
                   <td>{d.ativo ? d.ativo.nome : <span style={{ color: '#bbb' }}>—</span>}</td>
-                  <td>{d.chamado ? `#${d.chamado.id} - ${d.chamado.titulo}` : <span style={{ color: '#bbb' }}>—</span>}</td>
                   <td>{d.responsavel?.nome}</td>
                   <td>{fmtData(d.criado_em)}</td>
                   <td>
@@ -163,14 +209,22 @@ export default function Documentacao() {
                           {baixando === d.id ? '...' : 'Baixar'}
                         </button>
                       )}
-                      {podeEditar && (
+                      {podeEditar && (d.bloqueado ? (
+                        <>
+                          <button className="btn btn-secondary btn-sm" disabled aria-describedby={`doc-bloqueado-${d.id}`}>Editar</button>
+                          {usuario?.perfil === 'ADMIN' && (
+                            <button className="btn btn-danger btn-sm" disabled aria-describedby={`doc-bloqueado-${d.id}`}>Remover</button>
+                          )}
+                          <small id={`doc-bloqueado-${d.id}`} className="doc-blocked-note">Histórico protegido: usado por chamado concluído ou cancelado.</small>
+                        </>
+                      ) : (
                         <>
                           <button className="btn btn-secondary btn-sm" onClick={() => iniciarEdicao(d)}>Editar</button>
                           {usuario?.perfil === 'ADMIN' && (
                             <button className="btn btn-danger btn-sm" onClick={() => remover(d.id)}>Remover</button>
                           )}
                         </>
-                      )}
+                      ))}
                     </div>
                   </td>
                 </tr>
@@ -198,11 +252,7 @@ export default function Documentacao() {
                 🖥️ <strong>Ativo vinculado:</strong> {lendoDoc.ativo.nome}
               </p>
             )}
-            {lendoDoc.chamado && (
-              <p style={{ marginBottom: 6 }}>
-                🎫 <strong>Chamado vinculado:</strong> #{lendoDoc.chamado.id} — {lendoDoc.chamado.titulo}
-              </p>
-            )}
+            {!!lendoDoc.chamados?.length && <div><strong>Chamados que usam este documento:</strong><ul>{lendoDoc.chamados.map(c => <li key={c.id}>#{c.id} — {c.titulo}</li>)}</ul></div>}
             {lendoDoc.descricao && <p style={{ marginBottom: 10, marginTop: 10 }}>{lendoDoc.descricao}</p>}
             {lendoDoc.link_externo && (
               <p><a href={lendoDoc.link_externo} target="_blank" rel="noreferrer" style={{ color: 'var(--cps-vermelho)' }}>
@@ -225,60 +275,6 @@ export default function Documentacao() {
           </div>
         )}
 
-        {/* Formulário */}
-        {mostrarForm && podeEditar && (
-          <div className="card-box">
-            <h2>{editandoId ? 'Editar Documento' : 'Cadastrar Documentação'}</h2>
-            <hr className="divider" />
-            {erro && <div className="alert alert-erro">{erro}</div>}
-            {sucesso && <div className="alert alert-sucesso">{sucesso}</div>}
-            <form onSubmit={handleSubmit} style={{ marginTop: 15 }}>
-              <div className="form-group">
-                <label htmlFor="documentacao-campo-1">Título do Documento</label>
-                <input id="documentacao-campo-1" className="form-control" placeholder="Título descritivo" value={form.titulo} onChange={set('titulo')} required />
-              </div>
-              <div className="form-group">
-                <label htmlFor="documentacao-campo-2">Descrição</label>
-                <textarea id="documentacao-campo-2" className="form-control" rows={3} value={form.descricao} onChange={set('descricao')} />
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="documentacao-campo-3">Ativo Relacionado (Opcional)</label>
-                  <select id="documentacao-campo-3" className="form-control" value={form.id_ativo} onChange={set('id_ativo')}>
-                    <option value="">— Nenhum —</option>
-                    {ativos.map(a => (
-                      <option key={a.id} value={a.id}>{a.nome} ({a.tipo})</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label htmlFor="documentacao-campo-4">Chamado Relacionado (Opcional)</label>
-                  <select id="documentacao-campo-4" className="form-control" value={form.id_chamado} onChange={set('id_chamado')}>
-                    <option value="">— Nenhum —</option>
-                    {chamados.map(c => (
-                      <option key={c.id} value={c.id}>#{c.id} — {c.titulo}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="documentacao-campo-5">Link Externo (Opcional)</label>
-                  <input id="documentacao-campo-5" type="url" className="form-control" placeholder="https://..." value={form.link_externo} onChange={set('link_externo')} />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="documentacao-campo-6">Arquivo (PDF, DOCX, JPG, PNG)</label>
-                  <input id="documentacao-campo-6" type="file" className="form-control" style={{ padding: 7 }} onChange={e => setArquivo(e.target.files[0])} />
-                  {editandoId && <small style={{ color: '#999' }}>Deixe em branco para manter o arquivo atual.</small>}
-                </div>
-              </div>
-              <div className="form-actions">
-                <button type="button" className="btn btn-secondary" onClick={() => setMostrarForm(false)}>Cancelar</button>
-                <button type="submit" className="btn btn-primary">Salvar Documento</button>
-              </div>
-            </form>
-          </div>
-        )}
       </main>
     </>
   );

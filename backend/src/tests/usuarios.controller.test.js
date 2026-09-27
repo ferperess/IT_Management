@@ -137,7 +137,7 @@ describe('usuariosController: inativar', () => {
 
   test('deve inativar usuário com sucesso', async () => {
     prisma.uSUARIOS.update.mockResolvedValue({});
-    const req = { params: { id: '1' } };
+    const req = { params: { id: '1' }, usuario: { id: 2n } };
     const res = mockRes();
 
     await inativar(req, res);
@@ -146,8 +146,9 @@ describe('usuariosController: inativar', () => {
   });
 
   test('deve retornar 404 se usuário não existir', async () => {
-    prisma.uSUARIOS.update.mockRejectedValue(new Error('not found'));
-    const req = { params: { id: '999' } };
+    const erro = new Error('not found'); erro.code = 'P2025';
+    prisma.uSUARIOS.update.mockRejectedValue(erro);
+    const req = { params: { id: '999' }, usuario: { id: 2n } };
     const res = mockRes();
 
     await inativar(req, res);

@@ -1,4 +1,7 @@
+import SelecaoMultipla from '../components/SelecaoMultipla';
+import SlaChamado from '../components/SlaChamado';
 import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -8,7 +11,7 @@ import { statusLabel, formatarHistorico, formatarErroChamado } from '../utils/ch
 const prioLabel = { BAIXA: 'Baixa', MEDIA: 'Média', ALTA: 'Alta', CRITICA: 'Crítica' };
 const categorias = { HARDWARE: 'Hardware', SOFTWARE: 'Software', REDE: 'Rede', ACESSO: 'Acesso', IMPRESSORA: 'Impressora', AUDIOVISUAL: 'Audiovisual', OUTRO: 'Outro' };
 // Espelha validators.js; a API continua responsável por validar a transição.
-const transicoes = { ABERTO: ['EM_ANDAMENTO', 'CANCELADO'], EM_ANDAMENTO: ['CONCLUIDO', 'CANCELADO'], CONCLUIDO: [], CANCELADO: [] };
+const transicoes = { ABERTO: ['EM_ANDAMENTO', 'CANCELADO'], EM_ANDAMENTO: ['AGUARDANDO_USUARIO', 'CONCLUIDO', 'CANCELADO'], AGUARDANDO_USUARIO: ['EM_ANDAMENTO', 'CANCELADO'], CONCLUIDO: [], CANCELADO: [] };
 const novoVazio = { titulo: '', descricao: '', id_ativo: '' };
 const filtrosVazios = { busca: '', status: '', prioridade: '', categoria: '', ativo: '', inicio: '', fim: '' };
 const normalizar = value => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -25,11 +28,16 @@ function Opcoes({ items }) {
 
 export default function Chamados() {
   const { usuario } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const podeGerenciar = ['ADMIN', 'TECNICO'].includes(usuario?.perfil);
   const [vista, setVista] = useState(() => podeGerenciar ? 'kanban' : 'lista');
   const [chamados, setChamados] = useState([]);
   const [statusMobile, setStatusMobile] = useState('ABERTO');
   const [ativos, setAtivos] = useState([]);
+  const [documentos, setDocumentos] = useState([]);
+  const [erroDocumentos, setErroDocumentos] = useState('');
+  const [baixandoDoc, setBaixandoDoc] = useState(null);
   const [tecnicos, setTecnicos] = useState([]);
   const [avisoAuxiliar, setAvisoAuxiliar] = useState('');
   const [carregando, setCarregando] = useState(true);
@@ -69,10 +77,13 @@ export default function Chamados() {
       const resultados = await Promise.allSettled([
         api.get('/ativos'),
         usuario?.perfil === 'ADMIN' ? api.get('/usuarios') : Promise.resolve({ data: [] }),
+        podeGerenciar ? api.get('/documentacoes') : Promise.resolve({ data: [] }),
       ]);
       if (!ativo) return;
       if (resultados[0].status === 'fulfilled') setAtivos(resultados[0].value.data);
       if (resultados[1].status === 'fulfilled') setTecnicos(resultados[1].value.data.filter(u => ['ADMIN', 'TECNICO'].includes(u.perfil) && u.status === 'ATIVO'));
+      if (resultados[2].status === 'fulfilled') setDocumentos(resultados[2].value.data);
+      else setErroDocumentos('Não foi possível carregar as opções de documentação. Recarregue a página para tentar novamente.');
       const avisos = [];
       if (resultados[0].status === 'rejected') avisos.push('A lista de ativos está indisponível. Você ainda pode abrir um chamado sem vínculo.');
       if (resultados[1].status === 'rejected') avisos.push('A lista de responsáveis está indisponível. A atribuição atual será preservada.');
@@ -81,6 +92,11 @@ export default function Chamados() {
     carregarAuxiliares();
     return () => { ativo = false; };
   }, [usuario?.perfil]);
+  useEffect(() => {
+    if (!location.state?.abrirNovoChamado) return;
+    setFormAberto(true);
+    navigate(`${location.pathname}${location.search}${location.hash}`, { replace: true, state: null });
+  }, [location, navigate]);
   useEffect(() => { if (formAberto) tituloInput.current?.focus(); }, [formAberto]);
   useEffect(() => {
     if (!dialog.current?.open) return;
@@ -95,7 +111,7 @@ export default function Chamados() {
     dialog.current?.close(); setDetalhe(null); setBuscandoDetalhe(false);
   }
   function preencherGestao(data) {
-    setGestao({ status: data.status, prioridade: data.prioridade, categoria: data.categoria || 'OUTRO', id_tecnico: data.id_tecnico || '', comentario: '' });
+    setGestao({ status: data.status, prioridade: data.prioridade, categoria: data.categoria || 'OUTRO', id_tecnico: data.id_tecnico || '', comentario: '', motivo_espera: '', ids_documentacoes: (data.documentos_vinculados || []).map(v => String(v.id_documentacao)) });
   }
   async function abrirDetalhe(id) {
     const versao = ++requisicaoDetalhe.current;
@@ -126,6 +142,16 @@ export default function Chamados() {
     } catch (err) { setErroNovo(formatarErroChamado(err.response?.data?.erro) || 'Não foi possível registrar o chamado. Seus dados foram preservados.'); }
     finally { travaCriacao.current = false; setCriando(false); }
   }
+  async function baixarDocumento(doc) {
+    setBaixandoDoc(doc.id);
+    try {
+      const resp = await api.get(`/documentacoes/${doc.id}/download`, { responseType: 'blob' });
+      const url = URL.createObjectURL(new Blob([resp.data], { type: resp.headers['content-type'] }));
+      const a = document.createElement('a'); a.href = url; a.download = doc.arquivo_nome || 'arquivo';
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    } catch { setErroDetalhe('Não foi possível baixar a documentação. Tente novamente.'); }
+    finally { setBaixandoDoc(null); }
+  }
   async function atualizar(e) {
     e.preventDefault();
     if (travaSalvar.current || !detalhe) return;
@@ -137,18 +163,15 @@ export default function Chamados() {
     const payload = {};
     for (const campo of ['status', 'prioridade', 'categoria']) if (gestao[campo] !== detalhe[campo]) payload[campo] = gestao[campo];
     if (String(gestao.id_tecnico || '') !== String(detalhe.id_tecnico || '')) payload.id_tecnico = gestao.id_tecnico ? String(gestao.id_tecnico) : null;
+    if (gestao.status === 'AGUARDANDO_USUARIO' && detalhe.status !== gestao.status) payload.motivo_espera = gestao.motivo_espera.trim();
+    const idsAntes = (detalhe.documentos_vinculados || []).map(v => String(v.id_documentacao)).sort();
+    if (JSON.stringify(idsAntes) !== JSON.stringify([...gestao.ids_documentacoes].sort())) payload.ids_documentacoes = gestao.ids_documentacoes;
     if (gestao.comentario.trim()) payload.comentario = gestao.comentario.trim();
     try {
       if (!Object.keys(payload).length) { setSucessoDetalhe('Nenhuma alteração para salvar.'); return; }
       const { data } = await api.put(`/chamados/${detalhe.id}`, payload);
       setChamados(lista => lista.map(c => c.id === data.id ? data : c));
       setDetalhe(data); preencherGestao(data); setSucessoDetalhe('Chamado atualizado com sucesso.');
-      // O PUT retorna antes da inclusão do histórico; buscar novamente após salvar.
-      try {
-        const atualizado = await api.get(`/chamados/${data.id}`);
-        setDetalhe(atualizado.data); preencherGestao(atualizado.data);
-        setChamados(lista => lista.map(c => c.id === data.id ? atualizado.data : c));
-      } catch { setErroDetalhe('Alterações salvas, mas não foi possível atualizar o histórico. Reabra o chamado para tentar novamente.'); }
     } catch (err) { setErroDetalhe(formatarErroChamado(err.response?.data?.erro) || 'Não foi possível salvar. Suas alterações foram preservadas.'); }
     finally { travaSalvar.current = false; setSalvando(false); }
   }
@@ -209,8 +232,8 @@ export default function Chamados() {
           ))}
         </div><div className="ch-board">{Object.entries(statusLabel).filter(([s]) => !filtros.status || s === filtros.status).map(([s, label]) => {
           const cards = filtrados.filter(c => c.status === s);
-          return <section className={`ch-column ch-column-${s}`} key={s} id={`ch-coluna-${s}`} data-mobile-active={(filtros.status || statusMobile) === s} aria-label={label}><div className="ch-column-heading"><h2>{label}</h2><span>{cards.length}</span></div><div className="ch-cards">{cards.length ? cards.map(c => <article key={c.id} className="ch-ticket"><div className="ch-ticket-top"><span>#{c.id}</span><Badge valor={c.prioridade} prioridade /></div><h3><button className="ch-title-link" onClick={() => abrirDetalhe(c.id)}>{c.titulo}</button></h3><p className="ch-muted">{categorias[c.categoria] || 'Outro'}</p><dl><dt>Solicitante</dt><dd>{c.solicitante?.nome || '—'}</dd><dt>Responsável</dt><dd>{c.tecnico?.nome || 'Não atribuído'}</dd>{c.ativo && <><dt>Ativo</dt><dd>{c.ativo.nome}</dd></>}</dl><div className="ch-ticket-footer"><time dateTime={c.criado_em}>{fmtData(c.criado_em)}</time><button className="ch-link" aria-label={`Ver chamado ${c.id}`} onClick={() => abrirDetalhe(c.id)}>Ver detalhes</button></div></article>) : <p className="ch-column-empty">Nenhum chamado nesta etapa.</p>}</div></section>;
-        })}</div></> : <div className="ch-table-wrap" role="region" aria-label="Lista de chamados" tabIndex={0}><table className="cps-table"><thead><tr>{['Chamado', 'Solicitante / responsável', 'Prioridade', 'Status', 'Abertura'].map(t => <th scope="col" key={t}>{t}</th>)}</tr></thead><tbody>{filtrados.map(c => <tr key={c.id}><td><button className="ch-title-link" onClick={() => abrirDetalhe(c.id)}>#{c.id} · {c.titulo}</button><span className="ch-cell-sub">{categorias[c.categoria] || 'Outro'}{c.ativo ? ` · ${c.ativo.nome}` : ''}</span></td><td>{c.solicitante?.nome || '—'}<span className="ch-cell-sub">{c.tecnico?.nome || 'Não atribuído'}</span></td><td><Badge valor={c.prioridade} prioridade /></td><td><Badge valor={c.status} /></td><td><time dateTime={c.criado_em}>{fmtData(c.criado_em)}</time></td></tr>)}</tbody></table></div>}
+          return <section className={`ch-column ch-column-${s}`} key={s} id={`ch-coluna-${s}`} data-mobile-active={(filtros.status || statusMobile) === s} aria-label={label}><div className="ch-column-heading"><h2>{label}</h2><span>{cards.length}</span></div><div className="ch-cards">{cards.length ? cards.map(c => <article key={c.id} className="ch-ticket"><div className="ch-ticket-top"><span>#{c.id}</span><Badge valor={c.prioridade} prioridade /></div><h3><button className="ch-title-link" onClick={() => abrirDetalhe(c.id)}>{c.titulo}</button></h3><p className="ch-muted">{categorias[c.categoria] || 'Outro'}</p><dl><dt>Solicitante</dt><dd>{c.solicitante?.nome || '—'}</dd><dt>Responsável</dt><dd>{c.tecnico?.nome || 'Não atribuído'}</dd>{c.ativo && <><dt>Ativo</dt><dd>{c.ativo.nome}</dd></>}</dl><SlaChamado chamado={c} compacto /><div className="ch-ticket-footer"><time dateTime={c.criado_em}>{fmtData(c.criado_em)}</time><button className="ch-link" aria-label={`Ver chamado ${c.id}`} onClick={() => abrirDetalhe(c.id)}>Ver detalhes</button></div></article>) : <p className="ch-column-empty">Nenhum chamado nesta etapa.</p>}</div></section>;
+        })}</div></> : <div className="ch-table-wrap" role="region" aria-label="Lista de chamados" tabIndex={0}><table className="cps-table"><thead><tr>{['Chamado', 'Solicitante / responsável', 'Prioridade', 'Status', 'Abertura'].map(t => <th scope="col" key={t}>{t}</th>)}</tr></thead><tbody>{filtrados.map(c => <tr key={c.id}><td><button className="ch-title-link" onClick={() => abrirDetalhe(c.id)}>#{c.id} · {c.titulo}</button><span className="ch-cell-sub">{categorias[c.categoria] || 'Outro'}{c.ativo ? ` · ${c.ativo.nome}` : ''}</span></td><td>{c.solicitante?.nome || '—'}<span className="ch-cell-sub">{c.tecnico?.nome || 'Não atribuído'}</span></td><td><Badge valor={c.prioridade} prioridade /></td><td><Badge valor={c.status} /><SlaChamado chamado={c} compacto /></td><td><time dateTime={c.criado_em}>{fmtData(c.criado_em)}</time></td></tr>)}</tbody></table></div>}
     </section>
     <dialog ref={dialog} className="ch-drawer" aria-labelledby="ch-detalhe-titulo" onCancel={e => { e.preventDefault(); fecharDetalhe(); }}>
       <div className="ch-drawer-head"><h2 id="ch-detalhe-titulo">{detalhe ? `Chamado #${detalhe.id}` : 'Detalhes do chamado'}</h2><button className="btn btn-secondary ch-close" type="button" autoFocus disabled={salvando} onClick={fecharDetalhe}>Fechar</button></div>
@@ -219,12 +242,16 @@ export default function Chamados() {
       {sucessoDetalhe && <div className="alert alert-sucesso" role="status">{sucessoDetalhe}</div>}
       {detalhe && <><h3 className="ch-detail-title">{detalhe.titulo}</h3><div className="ch-detail-badges"><Badge valor={detalhe.status} /><Badge valor={detalhe.prioridade} prioridade /></div><dl className="ch-detail-meta"><dt>Solicitante</dt><dd>{detalhe.solicitante?.nome || '—'}</dd><dt>Abertura</dt><dd>{fmtData(detalhe.criado_em)}</dd><dt>Categoria</dt><dd>{categorias[detalhe.categoria] || 'Outro'}</dd><dt>Responsável</dt><dd>{detalhe.tecnico?.nome || 'Não atribuído'}</dd><dt>Ativo</dt><dd>{detalhe.ativo?.nome || 'Sem vínculo'}</dd></dl><h3>Descrição</h3><p className="ch-description">{detalhe.descricao}</p>
         {['CONCLUIDO', 'CANCELADO'].includes(detalhe.status) && <p className="ch-notice" role="status">Este chamado foi {detalhe.status === 'CONCLUIDO' ? 'concluído' : 'cancelado'} e está disponível somente para consulta</p>}
+        <SlaChamado chamado={detalhe} />
+        <section className="related-docs"><h3>Documentações relacionadas</h3>{detalhe.documentos_vinculados?.length ? <ul>{detalhe.documentos_vinculados.map(({ documentacao: doc }) => <li key={doc.id}><details><summary>{doc.titulo}</summary><p>{doc.descricao || 'Sem descrição.'}</p>{/^https?:\/\//i.test(doc.link_externo || '') && <a href={doc.link_externo} target="_blank" rel="noopener noreferrer">Abrir link externo</a>}{doc.arquivo_nome && <button type="button" className="btn btn-secondary" disabled={baixandoDoc === doc.id} onClick={() => baixarDocumento(doc)}>{baixandoDoc === doc.id ? 'Baixando…' : `Baixar ${doc.arquivo_nome}`}</button>}</details></li>)}</ul> : <p>Nenhuma documentação vinculada.</p>}</section>
         {podeGerenciar && !['CONCLUIDO', 'CANCELADO'].includes(detalhe.status) && <form className="ch-management" onSubmit={atualizar}><h3>Gestão técnica</h3><fieldset disabled={salvando}><div className="ch-form-grid">
           <Campo id="ch-editar-status" label="Status"><select id="ch-editar-status" className="form-control" value={gestao.status} onChange={mudarGestao('status')}>{[detalhe.status, ...(transicoes[detalhe.status] || [])].map(s => <option key={s} value={s}>{statusLabel[s]}</option>)}</select></Campo>
           <Campo id="ch-editar-prioridade" label="Prioridade"><select id="ch-editar-prioridade" className="form-control" value={gestao.prioridade} onChange={mudarGestao('prioridade')}><Opcoes items={prioLabel} /></select></Campo>
           <Campo id="ch-editar-categoria" label="Categoria"><select id="ch-editar-categoria" className="form-control" value={gestao.categoria} onChange={mudarGestao('categoria')}><Opcoes items={categorias} /></select></Campo>
           <Campo id="ch-tecnico" label="Responsável"><select id="ch-tecnico" className="form-control" value={gestao.id_tecnico} onChange={mudarGestao('id_tecnico')}><option value="">Não atribuído</option>{detalhe.id_tecnico && !tecnicos.some(t => t.id === detalhe.id_tecnico) && detalhe.id_tecnico !== usuario.id && <option value={detalhe.id_tecnico}>{detalhe.tecnico?.nome || 'Responsável atual'}</option>}{!tecnicos.some(t => t.id === usuario.id) && <option value={usuario.id}>{usuario.nome} (eu)</option>}{tecnicos.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}</select></Campo>
-        </div><Campo id="ch-comentario" label="Adicionar comentário ou registrar solução"><textarea id="ch-comentario" className="form-control" rows={3} value={gestao.comentario} onChange={mudarGestao('comentario')} /></Campo><button type="submit" className="btn btn-primary">{salvando ? 'Salvando…' : 'Salvar alterações'}</button></fieldset></form>}
+        </div>{gestao.status === 'AGUARDANDO_USUARIO' && detalhe.status !== gestao.status && <Campo id="ch-motivo-espera" label="Motivo da espera pelo usuário"><textarea id="ch-motivo-espera" className="form-control" required rows={3} value={gestao.motivo_espera} onChange={mudarGestao('motivo_espera')} /></Campo>}
+        {erroDocumentos ? <p role="alert">{erroDocumentos}</p> : <SelecaoMultipla titulo="Vincular documentações" opcoes={Array.from(new Map([...documentos, ...(detalhe.documentos_vinculados || []).map(v => v.documentacao)].map(d => [String(d.id), d])).values()).map(d => ({ id: d.id, label: d.titulo }))} selecionados={gestao.ids_documentacoes} onChange={ids => setGestao(g => ({ ...g, ids_documentacoes: ids }))} />}
+        <p className="ch-muted">Alterar a prioridade preserva os prazos de SLA já registrados.</p><Campo id="ch-comentario" label="Adicionar comentário ou registrar solução"><textarea id="ch-comentario" className="form-control" rows={3} value={gestao.comentario} onChange={mudarGestao('comentario')} /></Campo><button type="submit" className="btn btn-primary">{salvando ? 'Salvando…' : 'Salvar alterações'}</button></fieldset></form>}
         <h3>Histórico de atendimento</h3>{detalhe.historico?.length ? <ol className="ch-history">{detalhe.historico.map(h => <li key={h.id}><p>{formatarHistorico(h.comentario)}</p><span>{h.usuario?.nome || 'Sistema'} · {fmtData(h.criado_em)}</span></li>)}</ol> : <p className="ch-muted">Nenhuma ação registrada.</p>}
       </>}
     </dialog>

@@ -19,6 +19,7 @@ async function listar_ativos(req, res) {
 async function criar_ativo(req, res) {
   try {
     const { nome, tipo, localizacao, data_aquisicao, status } = req.body;
+    const statusNormalizado = status === 'EM_MANUTENCAO' ? 'MANUTENCAO' : status;
 
     if (!nome || !tipo || !localizacao) {
       return res.status(400).json({ erro: 'Campos obrigatórios: nome, tipo, localizacao.' });
@@ -30,7 +31,7 @@ async function criar_ativo(req, res) {
     }
 
     // Validação de status
-    if (status && !STATUS_ATIVO_VALIDOS.includes(status)) {
+    if (statusNormalizado && !STATUS_ATIVO_VALIDOS.includes(statusNormalizado)) {
       return res.status(400).json({ erro: `Status inválido. Valores aceitos: ${STATUS_ATIVO_VALIDOS.join(', ')}.` });
     }
 
@@ -45,7 +46,7 @@ async function criar_ativo(req, res) {
         tipo,
         localizacao,
         data_aquisicao: data_aquisicao ? new Date(data_aquisicao) : null,
-        status: status || 'ATIVO',
+        status: statusNormalizado || 'ATIVO',
       },
     });
     res.status(201).json(ativo);
@@ -59,6 +60,7 @@ async function atualizar_ativo(req, res) {
   try {
     const { id } = req.params;
     const { nome, tipo, localizacao, data_aquisicao, status } = req.body;
+    const statusNormalizado = status === 'EM_MANUTENCAO' ? 'MANUTENCAO' : status;
 
     // Validação de tipo
     if (tipo && !TIPOS_ATIVO_VALIDOS.includes(tipo)) {
@@ -66,7 +68,7 @@ async function atualizar_ativo(req, res) {
     }
 
     // Validação de status
-    if (status && !STATUS_ATIVO_VALIDOS.includes(status)) {
+    if (statusNormalizado && !STATUS_ATIVO_VALIDOS.includes(statusNormalizado)) {
       return res.status(400).json({ erro: `Status inválido. Valores aceitos: ${STATUS_ATIVO_VALIDOS.join(', ')}.` });
     }
 
@@ -75,7 +77,7 @@ async function atualizar_ativo(req, res) {
       return res.status(400).json({ erro: 'A data de aquisição não pode ser uma data futura.' });
     }
 
-    const data = { nome, tipo, localizacao, status };
+    const data = { nome, tipo, localizacao, status: statusNormalizado };
     if (data_aquisicao) data.data_aquisicao = new Date(data_aquisicao);
     Object.keys(data).forEach(k => data[k] === undefined && delete data[k]);
 
@@ -91,19 +93,17 @@ async function remover_ativo(req, res) {
   try {
     const id = toId(req.params.id);
 
-    // Impede remoção de ativo vinculado a chamado aberto ou em andamento
-    const chamadoAberto = await prisma.cHAMADOS.findFirst({
-      where: {
-        id_ativo: id,
-        status: { in: ['ABERTO', 'EM_ANDAMENTO'] },
-      },
-    });
+    const [chamado, documentacao] = await Promise.all([
+      prisma.cHAMADOS.findFirst({ where: { id_ativo: id } }),
+      prisma.dOCUMENTACOES.findFirst({ where: { id_ativo: id }, select: { id: true } }),
+    ]);
 
-    if (chamadoAberto) {
+    if (chamado && ['ABERTO', 'EM_ANDAMENTO', 'AGUARDANDO_USUARIO'].includes(chamado.status)) {
       return res.status(400).json({
-        erro: `Ativo não pode ser removido pois está vinculado ao chamado #${chamadoAberto.id} que ainda está em aberto.`,
+        erro: `Ativo não pode ser removido pois está vinculado ao chamado #${chamado.id} que ainda está em aberto.`,
       });
     }
+    if (chamado || documentacao) return res.status(409).json({ erro: 'Ativo possui vínculos históricos e não pode ser removido. Altere o status para Inativo/Baixado.' });
 
     await prisma.aTIVOS.delete({ where: { id } });
     res.json({ mensagem: 'Ativo removido.' });

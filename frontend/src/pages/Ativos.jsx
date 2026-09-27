@@ -4,12 +4,23 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import usePageTitle from '../hooks/usePageTitle';
 
-const tiposOpts = ['Desktop', 'Notebook', 'Impressora', 'Servidor', 'Rede (Switch/Roteador)', 'Outro'];
-const statusOpts = ['ATIVO', 'EM_MANUTENCAO', 'INATIVO'];
-const statusLabel = { ATIVO: 'Ativo', EM_MANUTENCAO: 'Em Manutenção', INATIVO: 'Inativo/Baixado' };
-const badgeMap = { ATIVO: 'ativo', EM_MANUTENCAO: 'manutencao', INATIVO: 'inativo' };
+const tiposOpts = [
+  { value: 'COMPUTADOR', label: 'Desktop / Computador' },
+  { value: 'NOTEBOOK', label: 'Notebook' },
+  { value: 'IMPRESSORA', label: 'Impressora' },
+  { value: 'SERVIDOR', label: 'Servidor' },
+  { value: 'REDE', label: 'Rede (Switch/Roteador)' },
+  { value: 'MONITOR', label: 'Monitor' },
+  { value: 'PERIFERICO', label: 'Periférico' },
+  { value: 'OUTRO', label: 'Outro' },
+];
+const tipoLabel = Object.fromEntries(tiposOpts.map(({ value, label }) => [value, label]));
+const tipoLegado = { Desktop: 'COMPUTADOR', Notebook: 'NOTEBOOK', Impressora: 'IMPRESSORA', Servidor: 'SERVIDOR', 'Rede (Switch/Roteador)': 'REDE', Outro: 'OUTRO' };
+const statusOpts = ['ATIVO', 'MANUTENCAO', 'INATIVO'];
+const statusLabel = { ATIVO: 'Ativo', MANUTENCAO: 'Em Manutenção', EM_MANUTENCAO: 'Em Manutenção', INATIVO: 'Inativo/Baixado' };
+const badgeMap = { ATIVO: 'ativo', MANUTENCAO: 'manutencao', EM_MANUTENCAO: 'manutencao', INATIVO: 'inativo' };
 
-const formVazio = { nome: '', tipo: 'Desktop', localizacao: '', data_aquisicao: '', status: 'ATIVO' };
+const formVazio = { nome: '', tipo: 'COMPUTADOR', localizacao: '', data_aquisicao: '', status: 'ATIVO' };
 
 export default function Ativos() {
   const { usuario } = useAuth();
@@ -43,9 +54,9 @@ export default function Ativos() {
   function iniciarEdicao(a) {
     setEditandoId(a.id);
     setForm({
-      nome: a.nome, tipo: a.tipo, localizacao: a.localizacao || '',
+      nome: a.nome, tipo: tipoLegado[a.tipo] || a.tipo, localizacao: a.localizacao || '',
       data_aquisicao: a.data_aquisicao ? a.data_aquisicao.slice(0, 10) : '',
-      status: a.status,
+      status: a.status === 'EM_MANUTENCAO' ? 'MANUTENCAO' : a.status,
     });
     setMostrarForm(true);
     setErro(''); setSucesso('');
@@ -110,7 +121,7 @@ export default function Ativos() {
               {ativos.map(a => (
                 <tr key={a.id}>
                   <td>{a.nome}</td>
-                  <td>{a.tipo}</td>
+                  <td>{tipoLabel[a.tipo] || a.tipo}</td>
                   <td>{a.localizacao}</td>
                   <td><span className={`badge badge-${badgeMap[a.status]}`}>{statusLabel[a.status]}</span></td>
                   {podeEditar && (
@@ -148,7 +159,7 @@ export default function Ativos() {
                 <div className="form-group">
                   <label htmlFor="ativos-campo-2">Tipo</label>
                   <select id="ativos-campo-2" className="form-control" value={form.tipo} onChange={set('tipo')}>
-                    {tiposOpts.map(t => <option key={t}>{t}</option>)}
+                    {tiposOpts.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                 </div>
                 <div className="form-group">

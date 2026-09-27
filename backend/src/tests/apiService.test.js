@@ -1,56 +1,73 @@
-const mockCreate = jest.fn();
+jest.mock('node:https', () => ({ request: jest.fn() }));
 
-jest.mock('@anthropic-ai/sdk', () => {
-  return jest.fn().mockImplementation(() => ({
-    messages: { create: mockCreate },
-  }));
-});
-
+const { EventEmitter } = require('node:events');
+const https = require('node:https');
 const { classificarPrioridade } = require('../services/apiService');
+let corposEnviados;
+
+function configurarResposta(prioridade, categoria = 'HARDWARE') {
+  https.request.mockImplementation((url, options, receberResposta) => {
+    const requisicao = new EventEmitter();
+    requisicao.destroy = jest.fn(erro => requisicao.emit('error', erro));
+    requisicao.end = jest.fn(corpo => {
+      corposEnviados.push(JSON.parse(corpo));
+      const resposta = new EventEmitter();
+      resposta.statusCode = 200;
+      resposta.setEncoding = jest.fn();
+      receberResposta(resposta);
+      resposta.emit('data', JSON.stringify({
+        model: 'modelo-teste',
+        choices: [{ message: { content: JSON.stringify({ prioridade, categoria }) } }],
+      }));
+      resposta.emit('end');
+    });
+    return requisicao;
+  });
+}
 
 describe('apiService: classificarPrioridade', () => {
-  beforeEach(() => mockCreate.mockClear());
+  beforeEach(() => {
+    https.request.mockReset();
+    corposEnviados = [];
+    process.env.OPENROUTER_MODEL = 'modelo-teste';
+    process.env.OPENROUTER_FALLBACK_MODEL = '';
+  });
 
   test('deve retornar ALTA para chamado crítico', async () => {
-    mockCreate.mockResolvedValue({ content: [{ text: 'ALTA' }] });
-    const resultado = await classificarPrioridade('Servidor caiu', 'O servidor principal está fora do ar');
-    expect(resultado).toBe('ALTA');
+    configurarResposta('ALTA');
+    await expect(classificarPrioridade('Servidor caiu', 'O servidor principal está fora do ar')).resolves.toBe('ALTA');
   });
 
   test('deve retornar BAIXA para chamado simples', async () => {
-    mockCreate.mockResolvedValue({ content: [{ text: 'BAIXA' }] });
-    const resultado = await classificarPrioridade('Trocar mouse', 'Mouse do usuário parou de funcionar');
-    expect(resultado).toBe('BAIXA');
+    configurarResposta('BAIXA');
+    await expect(classificarPrioridade('Trocar mouse', 'Mouse do usuário parou de funcionar')).resolves.toBe('BAIXA');
   });
 
-  test('deve retornar MEDIA se IA retornar valor inválido', async () => {
-    mockCreate.mockResolvedValue({ content: [{ text: 'URGENTE' }] });
-    const resultado = await classificarPrioridade('Qualquer título', 'Qualquer descrição');
-    expect(resultado).toBe('MEDIA');
+  test('deve rejeitar classificação inválida', async () => {
+    configurarResposta('URGENTE');
+    await expect(classificarPrioridade('Qualquer título', 'Qualquer descrição'))
+      .rejects.toMatchObject({ code: 'CLASSIFICACAO_INDISPONIVEL' });
   });
 
   test('deve aceitar resposta em minúsculas e normalizar', async () => {
-    mockCreate.mockResolvedValue({ content: [{ text: 'critica' }] });
-    const resultado = await classificarPrioridade('Sistema fora do ar', 'Todos os serviços caíram');
-    expect(resultado).toBe('CRITICA');
+    configurarResposta('critica');
+    await expect(classificarPrioridade('Sistema fora do ar', 'Todos os serviços caíram')).resolves.toBe('CRITICA');
   });
 
-  test('deve sanitizar quebras de linha substituindo por espaço', async () => {
-    mockCreate.mockResolvedValue({ content: [{ text: 'MEDIA' }] });
+  test('envia título e descrição como dados JSON, preservando quebras de linha', async () => {
+    configurarResposta('MEDIA');
     await classificarPrioridade('Título\ncom\nquebras', 'Descrição\ncom\nquebras');
-    const chamada = mockCreate.mock.calls[0][0];
-    const content = chamada.messages[0].content;
-    // Quebras de linha são substituídas por espaço — título e descrição aparecem sem \n
-    expect(content).toContain('Título com quebras');
-    expect(content).toContain('Descrição com quebras');
+    expect(JSON.parse(corposEnviados[0].messages[1].content)).toEqual({
+      titulo: 'Título\ncom\nquebras',
+      descricao: 'Descrição\ncom\nquebras',
+    });
   });
 
-  test('deve limitar texto a 500 caracteres por campo', async () => {
-    mockCreate.mockResolvedValue({ content: [{ text: 'MEDIA' }] });
-    const textoLongo = 'A'.repeat(1000);
-    await classificarPrioridade(textoLongo, textoLongo);
-    const chamada = mockCreate.mock.calls[0][0];
-    const content = chamada.messages[0].content;
-    expect(content).not.toContain('A'.repeat(600));
+  test('limita título a 500 caracteres e descrição a 6000', async () => {
+    configurarResposta('MEDIA');
+    await classificarPrioridade('T'.repeat(1000), 'D'.repeat(7000));
+    const dados = JSON.parse(corposEnviados[0].messages[1].content);
+    expect(dados.titulo).toHaveLength(500);
+    expect(dados.descricao).toHaveLength(6000);
   });
 });

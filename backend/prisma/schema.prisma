@@ -17,6 +17,9 @@ model USUARIOS {
   status     String   @default("ATIVO") @db.VarChar // ATIVO | INATIVO
   criado_em  DateTime @default(now()) @db.Timestamptz(6)
 
+  pausas_iniciadas PAUSAS_SLA_CHAMADOS[] @relation("pausa_inicio")
+  pausas_encerradas PAUSAS_SLA_CHAMADOS[] @relation("pausa_fim")
+
   chamados_abertos    CHAMADOS[]           @relation("solicitante")
   chamados_atribuidos CHAMADOS[]           @relation("tecnico")
   historicos          HISTORICO_CHAMADOS[]
@@ -44,7 +47,7 @@ model CHAMADOS {
   descricao     String @db.Text
   prioridade    String   @default("MEDIA") @db.VarChar // BAIXA | MEDIA | ALTA | CRITICA
   categoria     String   @default("OUTRO") @db.VarChar // HARDWARE | SOFTWARE | REDE | ACESSO | IMPRESSORA | AUDIOVISUAL | OUTRO
-  status        String   @default("ABERTO") @db.VarChar // ABERTO | EM_ANDAMENTO | CONCLUIDO | CANCELADO
+  status        String   @default("ABERTO") @db.VarChar // ABERTO | EM_ANDAMENTO | AGUARDANDO_USUARIO | CONCLUIDO | CANCELADO
   criado_em     DateTime @default(now()) @db.Timestamptz(6)
   atualizado_em DateTime? @default(now()) @updatedAt @db.Timestamptz(6)
 
@@ -56,6 +59,14 @@ model CHAMADOS {
 
   id_tecnico BigInt?
   tecnico    USUARIOS? @relation("tecnico", fields: [id_tecnico], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  prazo_atendimento_em DateTime? @db.Timestamptz(6)
+  atendimento_iniciado_em DateTime? @db.Timestamptz(6)
+  prazo_resolucao_em DateTime? @db.Timestamptz(6)
+  concluido_em DateTime? @db.Timestamptz(6)
+  cancelado_em DateTime? @db.Timestamptz(6)
+  pausas_sla PAUSAS_SLA_CHAMADOS[]
+  documentos_vinculados CHAMADOS_DOCUMENTACOES[]
 
   historico     HISTORICO_CHAMADOS[]
   documentacoes DOCUMENTACOES[]
@@ -75,6 +86,7 @@ model HISTORICO_CHAMADOS {
 }
 
 model DOCUMENTACOES {
+  chamados_vinculados CHAMADOS_DOCUMENTACOES[]
   id           BigInt      @id @default(autoincrement())
   titulo       String @db.VarChar
   descricao    String? @db.Text
@@ -92,4 +104,29 @@ model DOCUMENTACOES {
 
   id_chamado BigInt?
   chamado    CHAMADOS? @relation(fields: [id_chamado], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model PAUSAS_SLA_CHAMADOS {
+  id BigInt @id @default(autoincrement())
+  id_chamado BigInt
+  id_usuario_inicio BigInt
+  id_usuario_fim BigInt?
+  iniciado_em DateTime @default(now()) @db.Timestamptz(6)
+  encerrado_em DateTime? @db.Timestamptz(6)
+  motivo String @db.Text
+  chamado CHAMADOS @relation(fields: [id_chamado], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "PAUSAS_SLA_CHAMADOS_chamado_fkey")
+  usuario_inicio USUARIOS @relation("pausa_inicio", fields: [id_usuario_inicio], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "PAUSAS_SLA_CHAMADOS_usuario_inicio_fkey")
+  usuario_fim USUARIOS? @relation("pausa_fim", fields: [id_usuario_fim], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "PAUSAS_SLA_CHAMADOS_usuario_fim_fkey")
+  @@index([id_chamado, iniciado_em], map: "PAUSAS_SLA_CHAMADOS_chamado_inicio_idx")
+  // O índice parcial de pausa aberta e os CHECKs são mantidos pelo SQL.
+}
+
+model CHAMADOS_DOCUMENTACOES {
+  id_chamado BigInt
+  id_documentacao BigInt
+  criado_em DateTime @default(now()) @db.Timestamptz(6)
+  chamado CHAMADOS @relation(fields: [id_chamado], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "CHAMADOS_DOCUMENTACOES_chamado_fkey")
+  documentacao DOCUMENTACOES @relation(fields: [id_documentacao], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "CHAMADOS_DOCUMENTACOES_documentacao_fkey")
+  @@id([id_chamado, id_documentacao], map: "CHAMADOS_DOCUMENTACOES_pkey")
+  @@index([id_documentacao], map: "CHAMADOS_DOCUMENTACOES_documentacao_idx")
 }

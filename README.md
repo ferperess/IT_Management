@@ -18,6 +18,20 @@ npm run dev
 
 O servidor sobe em: http://localhost:3001
 
+### Migrações do banco PostgreSQL
+
+O schema e as migrações Prisma usam PostgreSQL. Em uma instalação vazia, aplique as migrações com `npx prisma migrate deploy` dentro de `backend/`.
+
+No Supabase já populado e sem a tabela `_prisma_migrations`, registre a baseline existente antes de usar `migrate deploy` em atualizações futuras:
+
+```bash
+cd backend
+npx prisma migrate resolve --applied 20260927120000_postgresql_baseline
+npx prisma migrate deploy
+```
+
+O primeiro comando registra a baseline sem executar DDL; o segundo aplica os índices e checks incrementais. Não execute `migrate deploy` antes de registrar a baseline em um banco já populado.
+
 ### 2. Frontend
 
 ```bash
@@ -122,12 +136,19 @@ IT_Management/
 |--------|------|---------------|
 | POST | /api/auth/login | — |
 | GET | /api/dashboard | Qualquer autenticado |
-| GET/POST | /api/usuarios | ADMIN |
-| PUT/PATCH | /api/usuarios/:id | ADMIN |
+| GET | /api/relatorios | TECNICO / ADMIN |
+| GET | /api/usuarios | ADMIN |
+| POST | /api/usuarios | ADMIN |
+| GET/PUT | /api/usuarios/:id | ADMIN |
+| PATCH | /api/usuarios/:id/inativar | ADMIN |
 | GET | /api/ativos | Qualquer autenticado |
-| POST/PUT | /api/ativos | TECNICO / ADMIN |
+| POST | /api/ativos | TECNICO / ADMIN |
+| PUT | /api/ativos/:id | TECNICO / ADMIN |
 | DELETE | /api/ativos/:id | ADMIN |
-| GET/POST | /api/chamados | Qualquer autenticado |
+| GET | /api/chamados e /api/chamados/:id | Qualquer autenticado |
+| POST | /api/chamados | Qualquer autenticado |
 | PUT | /api/chamados/:id | TECNICO / ADMIN |
-| GET/POST | /api/documentacoes | TECNICO / ADMIN |
-| PUT/DELETE | /api/documentacoes/:id | ADMIN |
+| GET | /api/documentacoes, /api/documentacoes/:id e /api/documentacoes/:id/download | Qualquer autenticado |
+| POST | /api/documentacoes | TECNICO / ADMIN |
+| PUT | /api/documentacoes/:id | TECNICO / ADMIN |
+| DELETE | /api/documentacoes/:id | ADMIN |

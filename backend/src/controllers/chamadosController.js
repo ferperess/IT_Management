@@ -1,3 +1,5 @@
+const { comSla, calcularSla, prazosIniciais, encerrado } = require('../services/slaService');
+const { escrever, falha, idsRecebidos } = require('../services/ticketWrite');
 const { toId } = require('../utils/ids');
 const prisma = require('../prisma');
 const { classificarChamado } = require('../services/apiService');
@@ -12,6 +14,8 @@ const include = {
   solicitante: { select: { id: true, nome: true } },
   ativo: { select: { id: true, nome: true } },
   tecnico: { select: { id: true, nome: true } },
+  pausas_sla: { orderBy: { iniciado_em: 'asc' } },
+  documentos_vinculados: { include: { documentacao: { select: { id: true, titulo: true, descricao: true, arquivo_nome: true, link_externo: true } } } },
   historico: { include: { usuario: { select: { nome: true } } }, orderBy: { criado_em: 'asc' } },
 };
 
@@ -19,8 +23,8 @@ async function listar_chamados(req, res) {
   try {
     const { perfil, id } = req.usuario;
     const where = perfil === 'COMUM' ? { id_solicitante: id } : {};
-    const chamados = await prisma.cHAMADOS.findMany({ where, include, orderBy: { criado_em: 'desc' } });
-    res.json(chamados);
+    const chamados = await prisma.cHAMADOS.findMany({ where, include: { solicitante: include.solicitante, ativo: include.ativo, tecnico: include.tecnico, pausas_sla: include.pausas_sla }, orderBy: { criado_em: 'desc' } });
+    res.json(chamados.map(comSla));
   } catch (err) {
     if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
     res.status(500).json({ erro: 'Erro ao listar chamados.' });
@@ -34,7 +38,7 @@ async function buscarPorId(req, res) {
     if (req.usuario.perfil === 'COMUM' && c.id_solicitante !== req.usuario.id) {
       return res.status(403).json({ erro: 'Acesso negado.' });
     }
-    res.json(c);
+    res.json(comSla(c));
   } catch (err) {
     if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
     res.status(500).json({ erro: 'Erro ao buscar chamado.' });
@@ -59,7 +63,7 @@ async function criar_chamado(req, res) {
     if (id_ativo) {
       const ativo = await prisma.aTIVOS.findUnique({ where: { id: toId(id_ativo) } });
       if (!ativo) return res.status(400).json({ erro: 'Ativo não encontrado.' });
-      if (ativo.status === 'MANUTENCAO') {
+      if (['MANUTENCAO', 'EM_MANUTENCAO'].includes(ativo.status)) {
         return res.status(400).json({ erro: 'O ativo selecionado está em manutenção e não pode ser vinculado a um novo chamado.' });
       }
     }
@@ -80,7 +84,7 @@ async function criar_chamado(req, res) {
     }
 
     const chamado = await prisma.cHAMADOS.create({
-      data: { titulo, descricao, prioridade, categoria, id_solicitante, id_ativo: id_ativo ? toId(id_ativo) : null },
+      data: { titulo, descricao, prioridade, categoria, ...prazosIniciais(prioridade), id_solicitante, id_ativo: id_ativo ? toId(id_ativo) : null },
       include,
     });
 
@@ -96,7 +100,7 @@ async function criar_chamado(req, res) {
 
     // O aviso também fica no histórico persistido, disponível após recarregar.
     res.status(201).json({
-      ...chamado,
+      ...comSla(chamado),
       historico: [...(chamado.historico || []), historicoAbertura],
       aviso,
     });
@@ -108,91 +112,109 @@ async function criar_chamado(req, res) {
 
 async function atualizar_chamado(req, res) {
   try {
-    const { id } = req.params;
-    const { status, prioridade, categoria, id_tecnico, comentario } = req.body;
-
-    const chamado = await prisma.cHAMADOS.findUnique({ where: { id: toId(id) } });
-    if (!chamado) return res.status(404).json({ erro: 'Chamado não encontrado.' });
-    if (['CONCLUIDO', 'CANCELADO'].includes(chamado.status)) {
-      return res.status(409).json({ erro: 'Chamados concluídos ou cancelados são somente leitura e não podem ser alterados.' });
-    }
-
-    if (status) {
-      if (!STATUS_CHAMADO_VALIDOS.includes(status)) {
-        return res.status(400).json({ erro: `Status inválido. Valores aceitos: ${STATUS_CHAMADO_VALIDOS.join(', ')}.` });
+    if (!['ADMIN', 'TECNICO'].includes(req.usuario.perfil)) return res.status(403).json({ erro: 'Acesso negado.' });
+    const id = toId(req.params.id);
+    const { status, prioridade, categoria, id_tecnico, comentario, motivo_espera, ids_documentacoes } = req.body;
+    if (comentario !== undefined && typeof comentario !== 'string') throw falha(400, 'Comentário inválido.');
+    const updated = await escrever(async tx => {
+      const chamado = await tx.cHAMADOS.findUnique({ where: { id }, include });
+      if (!chamado) throw falha(404, 'Chamado não encontrado.');
+      if (encerrado(chamado.status)) throw falha(409, 'Chamados concluídos ou cancelados são somente leitura e não podem ser alterados.');
+      if (status && (!STATUS_CHAMADO_VALIDOS.includes(status) || (status !== chamado.status && !validarTransicaoStatus(chamado.status, status)))) {
+        throw falha(400, 'Transição de status inválida. Reabra os detalhes para conferir as etapas disponíveis.');
       }
-      if (status !== chamado.status && !validarTransicaoStatus(chamado.status, status)) {
-        return res.status(400).json({
-          erro: `Transição de status inválida: não é possível mover de "${chamado.status}" para "${status}".`,
-        });
+      if (prioridade && !PRIORIDADES_VALIDAS.includes(prioridade)) throw falha(400, 'Prioridade inválida.');
+      if (categoria && !CATEGORIAS_VALIDAS.includes(categoria)) throw falha(400, 'Categoria inválida.');
+      if (id_tecnico) {
+        const tecnico = await tx.uSUARIOS.findUnique({ where: { id: toId(id_tecnico) } });
+        if (!tecnico || !['TECNICO', 'ADMIN'].includes(tecnico.perfil) || tecnico.status !== 'ATIVO') throw falha(400, 'Selecione um técnico ou administrador ativo.');
       }
-    }
-
-    if (prioridade && !PRIORIDADES_VALIDAS.includes(prioridade)) {
-      return res.status(400).json({ erro: `Prioridade inválida. Valores aceitos: ${PRIORIDADES_VALIDAS.join(', ')}.` });
-    }
-
-    if (categoria && !CATEGORIAS_VALIDAS.includes(categoria)) {
-      return res.status(400).json({ erro: `Categoria inválida. Valores aceitos: ${CATEGORIAS_VALIDAS.join(', ')}.` });
-    }
-
-    if (id_tecnico) {
-      const tecnico = await prisma.uSUARIOS.findUnique({ where: { id: toId(id_tecnico) } });
-      if (!tecnico) return res.status(400).json({ erro: 'Técnico não encontrado.' });
-      if (!['TECNICO', 'ADMIN'].includes(tecnico.perfil)) {
-        return res.status(400).json({ erro: 'O usuário selecionado não possui perfil de Técnico ou Administrador.' });
+      const agora = new Date();
+      const data = {};
+      if (status) data.status = status;
+      if (prioridade) data.prioridade = prioridade;
+      if (categoria) data.categoria = categoria;
+      if (id_tecnico !== undefined) data.id_tecnico = id_tecnico ? toId(id_tecnico) : null;
+      const mudouStatus = status && status !== chamado.status;
+      const eventos = [];
+      if (mudouStatus) {
+        const nomes = { ABERTO: 'Aberto', EM_ANDAMENTO: 'Em andamento', AGUARDANDO_USUARIO: 'Aguardando usuário', CONCLUIDO: 'Concluído', CANCELADO: 'Cancelado' };
+        eventos.push(`Status alterado para ${nomes[status]}.`);
+        if (status === 'EM_ANDAMENTO' && chamado.status === 'ABERTO' && !chamado.atendimento_iniciado_em) data.atendimento_iniciado_em = agora;
+        if (status === 'AGUARDANDO_USUARIO') {
+          if (typeof motivo_espera !== 'string' || !motivo_espera.trim()) throw falha(400, 'Informe o motivo da espera pelo usuário.');
+          await tx.pAUSAS_SLA_CHAMADOS.create({ data: { id_chamado: id, id_usuario_inicio: req.usuario.id, iniciado_em: agora, motivo: motivo_espera.trim() } });
+          eventos.push(`Motivo da espera: ${motivo_espera.trim()}`);
+        }
+        if (chamado.status === 'AGUARDANDO_USUARIO') {
+          const encerradas = await tx.pAUSAS_SLA_CHAMADOS.updateMany({ where: { id_chamado: id, encerrado_em: null }, data: { encerrado_em: agora, id_usuario_fim: req.usuario.id } });
+          if (encerradas.count !== 1) throw falha(409, 'O registro da pausa está inconsistente. Solicite a revisão ao administrador.');
+        }
+        if (status === 'CONCLUIDO') data.concluido_em = agora;
+        if (status === 'CANCELADO') data.cancelado_em = agora;
       }
-      if (tecnico.status === 'INATIVO') {
-        return res.status(400).json({ erro: 'Não é possível atribuir um chamado a um usuário inativo.' });
+      if (prioridade && prioridade !== chamado.prioridade) eventos.push('Prioridade alterada. Os prazos de SLA originais foram preservados.');
+      if (ids_documentacoes !== undefined) {
+        const ids = idsRecebidos(ids_documentacoes);
+        const documentos = await tx.dOCUMENTACOES.count({ where: { id: { in: ids } } });
+        if (documentos !== ids.length) throw falha(400, 'Uma das documentações não existe.');
+        const anteriores = chamado.documentos_vinculados.map(v => v.id_documentacao.toString()).sort();
+        if (JSON.stringify(anteriores) !== JSON.stringify(ids.map(String).sort())) {
+          await tx.cHAMADOS_DOCUMENTACOES.deleteMany({ where: { id_chamado: id } });
+          if (ids.length) await tx.cHAMADOS_DOCUMENTACOES.createMany({ data: ids.map(id_documentacao => ({ id_chamado: id, id_documentacao })) });
+          eventos.push('Documentações relacionadas atualizadas.');
+        }
       }
-    }
-
-    const data = {};
-    if (status) data.status = status;
-    if (prioridade) data.prioridade = prioridade;
-    if (categoria) data.categoria = categoria;
-    if (id_tecnico !== undefined) data.id_tecnico = id_tecnico ? toId(id_tecnico) : null;
-
-    // A condição é conferida também na escrita: protege contra conclusão ou cancelamento
-    // em outra sessão entre a leitura inicial e o salvamento. O histórico e
-    // a atualização são confirmados juntos, sob o mesmo bloqueio da linha.
-    const updated = await prisma.$transaction(async tx => {
-      await tx.cHAMADOS.update({
-        where: { id: toId(id), status: chamado.status },
-        data: { ...data, atualizado_em: new Date() },
-      });
-      if (comentario || status) {
-        await tx.hISTORICO_CHAMADOS.create({
-          data: {
-            id_chamado: toId(id),
-            id_usuario: req.usuario.id,
-            comentario: comentario || `Status alterado para ${status}.`,
-            status_novo: status || null,
-          },
-        });
-      }
-      return tx.cHAMADOS.findUnique({ where: { id: toId(id) }, include });
+      await tx.cHAMADOS.update({ where: { id }, data: { ...data, atualizado_em: agora } });
+      if (comentario?.trim()) eventos.push(comentario.trim());
+      if (!eventos.length) eventos.push('Dados do chamado atualizados.');
+      await tx.hISTORICO_CHAMADOS.create({ data: { id_chamado: id, id_usuario: req.usuario.id, comentario: eventos.join('\n'), status_novo: mudouStatus ? status : null } });
+      return tx.cHAMADOS.findUnique({ where: { id }, include });
     });
-
-    res.json(updated);
-  } catch (erro) {
-    if (erro.code === 'INVALID_ID') return res.status(400).json({ erro: erro.message });
-    if (erro.code === 'P2025') {
-      return res.status(409).json({ erro: 'O chamado foi alterado em outra sessão. Reabra os detalhes antes de tentar novamente.' });
-    }
+    res.json(comSla(updated));
+  } catch (err) {
+    if (err.httpStatus) return res.status(err.httpStatus).json({ erro: err.message });
+    if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
+    if (['P2002', 'P2025'].includes(err.code)) return res.status(409).json({ erro: 'O chamado mudou em outra sessão. Reabra os detalhes.' });
     res.status(500).json({ erro: 'Erro ao atualizar chamado.' });
   }
 }
 
 async function dashboard(req, res) {
   try {
-    const [abertos, andamento, concluidos, totalAtivos] = await Promise.all([
-      prisma.cHAMADOS.count({ where: { status: 'ABERTO' } }),
-      prisma.cHAMADOS.count({ where: { status: 'EM_ANDAMENTO' } }),
-      prisma.cHAMADOS.count({ where: { status: 'CONCLUIDO' } }),
+    const { perfil, id } = req.usuario;
+    const filtroSolicitante = perfil === 'COMUM' ? { id_solicitante: id } : {};
+    const [abertos, andamento, concluidos, totalAtivos, aguardando, chamadosSla] = await Promise.all([
+      prisma.cHAMADOS.count({ where: { status: 'ABERTO', ...filtroSolicitante } }),
+      prisma.cHAMADOS.count({ where: { status: 'EM_ANDAMENTO', ...filtroSolicitante } }),
+      prisma.cHAMADOS.count({ where: { status: 'CONCLUIDO', ...filtroSolicitante } }),
       prisma.aTIVOS.count(),
+      prisma.cHAMADOS.count({ where: { status: 'AGUARDANDO_USUARIO', ...filtroSolicitante } }),
+      prisma.cHAMADOS.findMany({
+        where: filtroSolicitante,
+        select: { status: true, criado_em: true, atendimento_iniciado_em: true, concluido_em: true, pausas_sla: true },
+      }),
     ]);
-    res.json({ abertos, andamento, concluidos, totalAtivos });
+    const horasAteAtendimento = chamadosSla
+      .filter(c => c.atendimento_iniciado_em)
+      .map(c => (+new Date(c.atendimento_iniciado_em) - +new Date(c.criado_em)) / 3600000)
+      .filter(horas => Number.isFinite(horas) && horas >= 0);
+    const horasAteResolucao = chamadosSla
+      .filter(c => c.status === 'CONCLUIDO' && c.concluido_em)
+      .map(c => calcularSla(c).tempo_resolucao_horas)
+      .filter(Number.isFinite);
+    const mediaHoras = valores => valores.length
+      ? Math.round(valores.reduce((soma, valor) => soma + valor, 0) / valores.length * 10) / 10
+      : null;
+    res.json({
+      abertos,
+      andamento,
+      concluidos,
+      totalAtivos,
+      aguardando,
+      tempoMedioAtendimentoHoras: mediaHoras(horasAteAtendimento),
+      tempoMedioResolucaoHoras: mediaHoras(horasAteResolucao),
+    });
   } catch (err) {
     if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
     res.status(500).json({ erro: 'Erro ao carregar dashboard.' });
@@ -260,15 +282,15 @@ async function relatorios(req, res) {
         id_tecnico: true,
         tecnico: { select: { nome: true } },
         criado_em: true,
-        atualizado_em: true,
+        concluido_em: true,
       },
     });
 
     const temposPorTecnico = {};
     concluidos.forEach(c => {
-      if (!c.atualizado_em) return; // Registros legados podem não ter essa data.
+      if (!c.concluido_em) return; // Registros legados podem não ter essa data.
       const key = c.id_tecnico;
-      const diff = (new Date(c.atualizado_em) - new Date(c.criado_em)) / (1000 * 60 * 60);
+      const diff = (new Date(c.concluido_em) - new Date(c.criado_em)) / (1000 * 60 * 60);
       if (!temposPorTecnico[key]) {
         temposPorTecnico[key] = { nome: c.tecnico.nome, total: 0, soma: 0 };
       }
@@ -282,7 +304,12 @@ async function relatorios(req, res) {
       tempo_medio_horas: Math.round((t.soma / t.total) * 10) / 10,
     })).sort((a, b) => a.tempo_medio_horas - b.tempo_medio_horas);
 
+    const paraSla = await prisma.cHAMADOS.findMany({ where, select: { status: true, criado_em: true, prazo_atendimento_em: true, atendimento_iniciado_em: true, prazo_resolucao_em: true, concluido_em: true, cancelado_em: true, pausas_sla: true } });
+    const sla = { cumpridos: 0, violados: 0, atrasados: 0, no_prazo: 0, pausados: 0, sem_prazo: 0, sem_registro: 0, cancelados: 0 };
+    const chave = { CUMPRIDO: 'cumpridos', VIOLADO: 'violados', ATRASADO: 'atrasados', NO_PRAZO: 'no_prazo', PAUSADO: 'pausados', NAO_DEFINIDO: 'sem_prazo', SEM_REGISTRO: 'sem_registro', CANCELADO: 'cancelados' };
+    for (const c of paraSla) sla[chave[calcularSla(c).resolucao.situacao]]++;
     res.json({
+      sla,
       periodo: { dataInicio: dataInicio || null, dataFim: dataFim || null },
       totalPeriodo,
       porCategoria: porCategoria.map(r => ({ categoria: r.categoria, total: r._count.id })),
