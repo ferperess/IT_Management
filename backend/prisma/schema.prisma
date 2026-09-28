@@ -26,11 +26,21 @@ model USUARIOS {
   documentacoes       DOCUMENTACOES[]
 }
 
+model LOCAIS {
+  id     BigInt @id @default(autoincrement())
+  nome   String @unique @db.VarChar
+  status String @default("ATIVO") @db.VarChar // ATIVO | INATIVO
+  ativos ATIVOS[]
+}
+
 model ATIVOS {
   id             BigInt       @id @default(autoincrement())
   nome           String @db.VarChar
+  patrimonio     String? @db.VarChar
   tipo           String @db.VarChar
   localizacao    String? @db.VarChar
+  id_local       BigInt?
+  local          LOCAIS? @relation(fields: [id_local], references: [id], onDelete: NoAction, onUpdate: NoAction)
   numero_serie   String? @db.VarChar
   responsavel    String? @db.VarChar
   data_aquisicao DateTime? @db.Timestamptz(6)
@@ -43,6 +53,8 @@ model ATIVOS {
 
 model CHAMADOS {
   id            BigInt      @id @default(autoincrement())
+  exige_confirmacao Boolean @default(false)
+  confirmacao_pendente Boolean @default(false)
   titulo        String @db.VarChar
   descricao     String @db.Text
   prioridade    String   @default("MEDIA") @db.VarChar // BAIXA | MEDIA | ALTA | CRITICA

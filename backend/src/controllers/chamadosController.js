@@ -47,7 +47,8 @@ async function buscarPorId(req, res) {
 
 async function criar_chamado(req, res) {
   try {
-    const { titulo, descricao, id_ativo } = req.body;
+    const { titulo, descricao, id_ativo, exige_confirmacao = false } = req.body;
+    if (typeof exige_confirmacao !== 'boolean') return res.status(400).json({ erro: 'Confirmação do solicitante deve ser verdadeiro ou falso.' });
     const id_solicitante = req.usuario.id;
 
     if (!titulo || !descricao) {
@@ -84,7 +85,7 @@ async function criar_chamado(req, res) {
     }
 
     const chamado = await prisma.cHAMADOS.create({
-      data: { titulo, descricao, prioridade, categoria, ...prazosIniciais(prioridade), id_solicitante, id_ativo: id_ativo ? toId(id_ativo) : null },
+      data: { titulo, descricao, exige_confirmacao, prioridade, categoria, ...prazosIniciais(prioridade), id_solicitante, id_ativo: id_ativo ? toId(id_ativo) : null },
       include,
     });
 
@@ -114,7 +115,8 @@ async function atualizar_chamado(req, res) {
   try {
     if (!['ADMIN', 'TECNICO'].includes(req.usuario.perfil)) return res.status(403).json({ erro: 'Acesso negado.' });
     const id = toId(req.params.id);
-    const { status, prioridade, categoria, id_tecnico, comentario, motivo_espera, ids_documentacoes } = req.body;
+    const { prioridade, categoria, id_tecnico, comentario, ids_documentacoes } = req.body;
+    let { status, motivo_espera } = req.body;
     if (comentario !== undefined && typeof comentario !== 'string') throw falha(400, 'Comentário inválido.');
     const updated = await escrever(async tx => {
       const chamado = await tx.cHAMADOS.findUnique({ where: { id }, include });
@@ -122,6 +124,11 @@ async function atualizar_chamado(req, res) {
       if (encerrado(chamado.status)) throw falha(409, 'Chamados concluídos ou cancelados são somente leitura e não podem ser alterados.');
       if (status && (!STATUS_CHAMADO_VALIDOS.includes(status) || (status !== chamado.status && !validarTransicaoStatus(chamado.status, status)))) {
         throw falha(400, 'Transição de status inválida. Reabra os detalhes para conferir as etapas disponíveis.');
+      }
+      const solicitarConfirmacao = status === 'CONCLUIDO' && chamado.exige_confirmacao;
+      if (solicitarConfirmacao) {
+        status = 'AGUARDANDO_USUARIO';
+        motivo_espera = 'Aguardando confirmação do solicitante para encerrar o chamado.';
       }
       if (prioridade && !PRIORIDADES_VALIDAS.includes(prioridade)) throw falha(400, 'Prioridade inválida.');
       if (categoria && !CATEGORIAS_VALIDAS.includes(categoria)) throw falha(400, 'Categoria inválida.');
@@ -131,6 +138,8 @@ async function atualizar_chamado(req, res) {
       }
       const agora = new Date();
       const data = {};
+      if (solicitarConfirmacao) data.confirmacao_pendente = true;
+      else if (status && status !== chamado.status) data.confirmacao_pendente = false;
       if (status) data.status = status;
       if (prioridade) data.prioridade = prioridade;
       if (categoria) data.categoria = categoria;
@@ -177,6 +186,32 @@ async function atualizar_chamado(req, res) {
     if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
     if (['P2002', 'P2025'].includes(err.code)) return res.status(409).json({ erro: 'O chamado mudou em outra sessão. Reabra os detalhes.' });
     res.status(500).json({ erro: 'Erro ao atualizar chamado.' });
+  }
+}
+
+async function responderConfirmacao(req, res) {
+  try {
+    const id = toId(req.params.id);
+    const { confirmar } = req.body;
+    if (typeof confirmar !== 'boolean') throw falha(400, 'Informe se deseja confirmar ou rejeitar o encerramento.');
+    const updated = await escrever(async tx => {
+      const chamado = await tx.cHAMADOS.findUnique({ where: { id }, include });
+      if (!chamado) throw falha(404, 'Chamado não encontrado.');
+      if (chamado.id_solicitante !== req.usuario.id) throw falha(403, 'Somente o solicitante pode responder à confirmação.');
+      if (!chamado.exige_confirmacao || !chamado.confirmacao_pendente || chamado.status !== 'AGUARDANDO_USUARIO') throw falha(409, 'Este chamado não aguarda confirmação de encerramento.');
+      const agora = new Date();
+      const pausas = await tx.pAUSAS_SLA_CHAMADOS.updateMany({ where: { id_chamado: id, encerrado_em: null }, data: { encerrado_em: agora, id_usuario_fim: req.usuario.id } });
+      if (pausas.count !== 1) throw falha(409, 'O registro da pausa está inconsistente. Solicite a revisão ao administrador.');
+      const status = confirmar ? 'CONCLUIDO' : 'EM_ANDAMENTO';
+      await tx.cHAMADOS.update({ where: { id }, data: { status, confirmacao_pendente: false, concluido_em: confirmar ? agora : null, atualizado_em: agora } });
+      await tx.hISTORICO_CHAMADOS.create({ data: { id_chamado: id, id_usuario: req.usuario.id, status_novo: status, comentario: confirmar ? 'Encerramento confirmado pelo solicitante.' : 'Encerramento rejeitado pelo solicitante. Atendimento retomado.' } });
+      return tx.cHAMADOS.findUnique({ where: { id }, include });
+    });
+    res.json(comSla(updated));
+  } catch (err) {
+    if (err.httpStatus) return res.status(err.httpStatus).json({ erro: err.message });
+    if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
+    res.status(500).json({ erro: 'Erro ao responder à confirmação.' });
   }
 }
 
@@ -324,4 +359,4 @@ async function relatorios(req, res) {
   }
 }
 
-module.exports = { listar: listar_chamados, buscarPorId, criar: criar_chamado, atualizar: atualizar_chamado, dashboard, relatorios };
+module.exports = { listar: listar_chamados, buscarPorId, criar: criar_chamado, atualizar: atualizar_chamado, responderConfirmacao, dashboard, relatorios };

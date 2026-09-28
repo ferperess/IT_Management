@@ -8,7 +8,7 @@ jest.mock('../prisma', () => ({
 }));
 jest.mock('../services/apiService', () => ({ classificarChamado: jest.fn() }));
 const prisma = require('../prisma');
-const { atualizar } = require('../controllers/chamadosController');
+const { atualizar, responderConfirmacao } = require('../controllers/chamadosController');
 const { validarTransicaoStatus } = require('../validators');
 let row;
 const res = () => ({ status: jest.fn().mockReturnThis(), json: jest.fn().mockReturnThis() });
@@ -76,4 +76,76 @@ test('transições exigem atendimento antes da espera e retomada antes de conclu
   expect(validarTransicaoStatus('ABERTO', 'AGUARDANDO_USUARIO')).toBe(false);
   expect(validarTransicaoStatus('AGUARDANDO_USUARIO', 'CONCLUIDO')).toBe(false);
   expect(validarTransicaoStatus('AGUARDANDO_USUARIO', 'EM_ANDAMENTO')).toBe(true);
+});
+
+describe('confirmação do solicitante', () => {
+  async function responder(confirmar, id = 3n, perfil = 'COMUM') {
+    const response = res();
+    await responderConfirmacao({ params: { id: '1' }, body: { confirmar }, usuario: { id, perfil } }, response);
+    return response;
+  }
+  beforeEach(() => {
+    Object.assign(row, { status: 'EM_ANDAMENTO', exige_confirmacao: true, confirmacao_pendente: false, id_solicitante: 3n });
+  });
+  test('conclusão técnica solicita confirmação, inicia pausa e não encerra', async () => {
+    await update({ status: 'CONCLUIDO', comentario: 'Solução aplicada' });
+    expect(row.status).toBe('AGUARDANDO_USUARIO');
+    expect(row.confirmacao_pendente).toBe(true);
+    expect(row.concluido_em).toBeUndefined();
+    expect(prisma.pAUSAS_SLA_CHAMADOS.create).toHaveBeenCalledTimes(1);
+    const r = await update({ status: 'CONCLUIDO' });
+    expect(r.status).toHaveBeenCalledWith(400);
+    expect(row.status).toBe('AGUARDANDO_USUARIO');
+  });
+  test.each(['COMUM', 'TECNICO', 'ADMIN'])('outro usuário %s não confirma', async perfil => {
+    await update({ status: 'CONCLUIDO' });
+    const r = await responder(true, 9n, perfil);
+    expect(r.status).toHaveBeenCalledWith(403);
+    expect(row.status).toBe('AGUARDANDO_USUARIO');
+  });
+  test('solicitante confirma e encerra pausa, repetição é recusada', async () => {
+    await update({ status: 'CONCLUIDO' });
+    await responder(true);
+    expect(row.status).toBe('CONCLUIDO');
+    expect(row.confirmacao_pendente).toBe(false);
+    expect(row.concluido_em).toBeInstanceOf(Date);
+    expect(prisma.pAUSAS_SLA_CHAMADOS.updateMany).toHaveBeenCalledTimes(1);
+    expect(prisma.hISTORICO_CHAMADOS.create).toHaveBeenLastCalledWith({ data: expect.objectContaining({ id_usuario: 3n, status_novo: 'CONCLUIDO' }) });
+    const r = await responder(true);
+    expect(r.status).toHaveBeenCalledWith(409);
+  });
+  test('rejeição retoma atendimento e exige nova confirmação na próxima conclusão', async () => {
+    await update({ status: 'CONCLUIDO' });
+    await responder(false);
+    expect(row.status).toBe('EM_ANDAMENTO');
+    expect(row.confirmacao_pendente).toBe(false);
+    expect(row.concluido_em).toBeNull();
+    await update({ status: 'CONCLUIDO' });
+    expect(row.confirmacao_pendente).toBe(true);
+    expect(row.status).toBe('AGUARDANDO_USUARIO');
+  });
+  test('espera comum não pode ser usada para confirmar encerramento', async () => {
+    await update({ status: 'AGUARDANDO_USUARIO', motivo_espera: 'Acesso ao equipamento' });
+    const r = await responder(true);
+    expect(r.status).toHaveBeenCalledWith(409);
+  });
+  test('retomada técnica invalida confirmação pendente', async () => {
+    await update({ status: 'CONCLUIDO' });
+    await update({ status: 'EM_ANDAMENTO' });
+    expect(row.confirmacao_pendente).toBe(false);
+    const r = await responder(true);
+    expect(r.status).toHaveBeenCalledWith(409);
+  });
+  test('sem checkbox conclui diretamente, sem pausa', async () => {
+    row.exige_confirmacao = false;
+    await update({ status: 'CONCLUIDO' });
+    expect(row.status).toBe('CONCLUIDO');
+    expect(row.concluido_em).toBeInstanceOf(Date);
+    expect(prisma.pAUSAS_SLA_CHAMADOS.create).not.toHaveBeenCalled();
+  });
+  test('rejeita resposta que não seja booleana', async () => {
+    const r = await responder('false');
+    expect(r.status).toHaveBeenCalledWith(400);
+    expect(prisma.cHAMADOS.update).not.toHaveBeenCalled();
+  });
 });

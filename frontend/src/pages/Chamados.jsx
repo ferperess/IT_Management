@@ -12,7 +12,7 @@ const prioLabel = { BAIXA: 'Baixa', MEDIA: 'Média', ALTA: 'Alta', CRITICA: 'Cr�
 const categorias = { HARDWARE: 'Hardware', SOFTWARE: 'Software', REDE: 'Rede', ACESSO: 'Acesso', IMPRESSORA: 'Impressora', AUDIOVISUAL: 'Audiovisual', OUTRO: 'Outro' };
 // Espelha validators.js; a API continua responsável por validar a transição.
 const transicoes = { ABERTO: ['EM_ANDAMENTO', 'CANCELADO'], EM_ANDAMENTO: ['AGUARDANDO_USUARIO', 'CONCLUIDO', 'CANCELADO'], AGUARDANDO_USUARIO: ['EM_ANDAMENTO', 'CANCELADO'], CONCLUIDO: [], CANCELADO: [] };
-const novoVazio = { titulo: '', descricao: '', id_ativo: '' };
+const novoVazio = { titulo: '', descricao: '', id_ativo: '', exige_confirmacao: false };
 const filtrosVazios = { busca: '', status: '', prioridade: '', categoria: '', ativo: '', inicio: '', fim: '' };
 const normalizar = value => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 const fmtData = value => value ? new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
@@ -133,7 +133,7 @@ export default function Chamados() {
     }
     travaCriacao.current = true; setCriando(true); setErroNovo(''); setMensagem(''); setAvisoClassificacao('');
     try {
-      const { data } = await api.post('/chamados', { titulo: novo.titulo.trim(), descricao: novo.descricao.trim(), id_ativo: novo.id_ativo ? String(novo.id_ativo) : null });
+      const { data } = await api.post('/chamados', { titulo: novo.titulo.trim(), descricao: novo.descricao.trim(), id_ativo: novo.id_ativo ? String(novo.id_ativo) : null, exige_confirmacao: novo.exige_confirmacao });
       setChamados(lista => [data, ...lista.filter(c => c.id !== data.id)]);
       setNovo(novoVazio); setFormAberto(false);
       setAvisoClassificacao(data.aviso ? `Chamado #${data.id}: ${data.aviso}` : '');
@@ -175,6 +175,17 @@ export default function Chamados() {
     } catch (err) { setErroDetalhe(formatarErroChamado(err.response?.data?.erro) || 'Não foi possível salvar. Suas alterações foram preservadas.'); }
     finally { travaSalvar.current = false; setSalvando(false); }
   }
+  async function responderConfirmacao(confirmar) {
+    if (travaSalvar.current || !detalhe) return;
+    travaSalvar.current = true; setSalvando(true); setErroDetalhe(''); setSucessoDetalhe('');
+    try {
+      const { data } = await api.post(`/chamados/${detalhe.id}/confirmacao`, { confirmar });
+      setChamados(lista => lista.map(c => c.id === data.id ? data : c));
+      setDetalhe(data); preencherGestao(data);
+      setSucessoDetalhe(confirmar ? 'Encerramento confirmado.' : 'Atendimento retomado.');
+    } catch (err) { setErroDetalhe(err.response?.data?.erro || 'Não foi possível responder à confirmação.'); }
+    finally { travaSalvar.current = false; setSalvando(false); }
+  }
   const mudarFiltro = key => e => setFiltros(f => ({ ...f, [key]: e.target.value }));
   const mudarNovo = key => e => setNovo(f => ({ ...f, [key]: e.target.value }));
   const mudarGestao = key => e => setGestao(f => ({ ...f, [key]: e.target.value }));
@@ -200,6 +211,7 @@ export default function Chamados() {
         <Campo id="ch-titulo" label="Título do problema"><input ref={tituloInput} id="ch-titulo" className="form-control" value={novo.titulo} onChange={mudarNovo('titulo')} required minLength={5} placeholder="Ex.: Projetor do laboratório não liga" /></Campo>
         <Campo id="ch-descricao" label="Descrição detalhada"><textarea id="ch-descricao" className="form-control" rows={4} value={novo.descricao} onChange={mudarNovo('descricao')} required minLength={10} placeholder="Descreva o problema, o local e como ele afeta sua atividade." /></Campo>
         <Campo id="ch-ativo" label="Ativo relacionado (opcional)"><select id="ch-ativo" className="form-control" value={novo.id_ativo} onChange={mudarNovo('id_ativo')}><option value="">Sem ativo vinculado</option>{ativos.map(a => <option key={a.id} value={a.id} disabled={['MANUTENCAO', 'EM_MANUTENCAO'].includes(a.status)}>{a.nome} ({a.tipo}){['MANUTENCAO', 'EM_MANUTENCAO'].includes(a.status) ? ' — em manutenção' : ''}</option>)}</select></Campo>
+        <div className="form-group"><label><input type="checkbox" checked={novo.exige_confirmacao} onChange={e => setNovo(f => ({ ...f, exige_confirmacao: e.target.checked }))} /> Exigir confirmação do solicitante para encerrar</label><p className="ch-muted">Se marcado, você deverá confirmar a solução antes do encerramento. Caso contrário, a equipe técnica poderá concluir diretamente.</p></div>
         <div className="ch-actions"><button type="button" className="btn btn-secondary" onClick={() => { setFormAberto(false); novoBotao.current?.focus(); }}>Recolher e manter rascunho</button><button className="btn btn-primary" type="submit">{criando ? 'Registrando e classificando…' : 'Registrar chamado'}</button></div>
       </fieldset></form>
     </section>
@@ -243,9 +255,11 @@ export default function Chamados() {
       {detalhe && <><h3 className="ch-detail-title">{detalhe.titulo}</h3><div className="ch-detail-badges"><Badge valor={detalhe.status} /><Badge valor={detalhe.prioridade} prioridade /></div><dl className="ch-detail-meta"><dt>Solicitante</dt><dd>{detalhe.solicitante?.nome || '—'}</dd><dt>Abertura</dt><dd>{fmtData(detalhe.criado_em)}</dd><dt>Categoria</dt><dd>{categorias[detalhe.categoria] || 'Outro'}</dd><dt>Responsável</dt><dd>{detalhe.tecnico?.nome || 'Não atribuído'}</dd><dt>Ativo</dt><dd>{detalhe.ativo?.nome || 'Sem vínculo'}</dd></dl><h3>Descrição</h3><p className="ch-description">{detalhe.descricao}</p>
         {['CONCLUIDO', 'CANCELADO'].includes(detalhe.status) && <p className="ch-notice" role="status">Este chamado foi {detalhe.status === 'CONCLUIDO' ? 'concluído' : 'cancelado'} e está disponível somente para consulta</p>}
         <SlaChamado chamado={detalhe} />
+        <p className="ch-muted">Confirmação do solicitante: {detalhe.exige_confirmacao ? 'obrigatória para encerrar' : 'não exigida'}.</p>
+        {detalhe.confirmacao_pendente && <section className="ch-notice" aria-label="Confirmação de encerramento"><p>A equipe técnica solicitou o encerramento. Aguardando confirmação do solicitante.</p>{String(detalhe.id_solicitante) === String(usuario.id) && <div className="ch-actions"><button type="button" className="btn btn-primary" disabled={salvando} onClick={() => responderConfirmacao(true)}>Confirmar solução e encerrar</button><button type="button" className="btn btn-secondary" disabled={salvando} onClick={() => responderConfirmacao(false)}>Não foi resolvido — retomar atendimento</button></div>}</section>}
         <section className="related-docs"><h3>Documentações relacionadas</h3>{detalhe.documentos_vinculados?.length ? <ul>{detalhe.documentos_vinculados.map(({ documentacao: doc }) => <li key={doc.id}><details><summary>{doc.titulo}</summary><p>{doc.descricao || 'Sem descrição.'}</p>{/^https?:\/\//i.test(doc.link_externo || '') && <a href={doc.link_externo} target="_blank" rel="noopener noreferrer">Abrir link externo</a>}{doc.arquivo_nome && <button type="button" className="btn btn-secondary" disabled={baixandoDoc === doc.id} onClick={() => baixarDocumento(doc)}>{baixandoDoc === doc.id ? 'Baixando…' : `Baixar ${doc.arquivo_nome}`}</button>}</details></li>)}</ul> : <p>Nenhuma documentação vinculada.</p>}</section>
         {podeGerenciar && !['CONCLUIDO', 'CANCELADO'].includes(detalhe.status) && <form className="ch-management" onSubmit={atualizar}><h3>Gestão técnica</h3><fieldset disabled={salvando}><div className="ch-form-grid">
-          <Campo id="ch-editar-status" label="Status"><select id="ch-editar-status" className="form-control" value={gestao.status} onChange={mudarGestao('status')}>{[detalhe.status, ...(transicoes[detalhe.status] || [])].map(s => <option key={s} value={s}>{statusLabel[s]}</option>)}</select></Campo>
+          <Campo id="ch-editar-status" label="Status"><select id="ch-editar-status" className="form-control" value={gestao.status} onChange={mudarGestao('status')}>{[detalhe.status, ...(transicoes[detalhe.status] || [])].map(s => <option key={s} value={s}>{s === 'CONCLUIDO' && detalhe.exige_confirmacao ? 'Solicitar confirmação de encerramento' : statusLabel[s]}</option>)}</select></Campo>
           <Campo id="ch-editar-prioridade" label="Prioridade"><select id="ch-editar-prioridade" className="form-control" value={gestao.prioridade} onChange={mudarGestao('prioridade')}><Opcoes items={prioLabel} /></select></Campo>
           <Campo id="ch-editar-categoria" label="Categoria"><select id="ch-editar-categoria" className="form-control" value={gestao.categoria} onChange={mudarGestao('categoria')}><Opcoes items={categorias} /></select></Campo>
           <Campo id="ch-tecnico" label="Responsável"><select id="ch-tecnico" className="form-control" value={gestao.id_tecnico} onChange={mudarGestao('id_tecnico')}><option value="">Não atribuído</option>{detalhe.id_tecnico && !tecnicos.some(t => t.id === detalhe.id_tecnico) && detalhe.id_tecnico !== usuario.id && <option value={detalhe.id_tecnico}>{detalhe.tecnico?.nome || 'Responsável atual'}</option>}{!tecnicos.some(t => t.id === usuario.id) && <option value={usuario.id}>{usuario.nome} (eu)</option>}{tecnicos.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}</select></Campo>

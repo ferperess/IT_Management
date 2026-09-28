@@ -4,6 +4,7 @@ const { autenticar, apenasAdminOuTecnico, apenasAdmin } = require('../middleware
 const authCtrl = require('../controllers/authController');
 const usuariosCtrl = require('../controllers/usuariosController');
 const ativosCtrl = require('../controllers/ativosController');
+const locaisCtrl = require('../controllers/locaisController');
 const chamadosCtrl = require('../controllers/chamadosController');
 const docsCtrl = require('../controllers/documentacoesController');
 
@@ -21,6 +22,7 @@ router.put('/usuarios/:id', autenticar, apenasAdmin, usuariosCtrl.atualizar);
 router.patch('/usuarios/:id/inativar', autenticar, apenasAdmin, usuariosCtrl.inativar);
 
 router.get('/ativos', autenticar, ativosCtrl.listar);
+router.get('/locais', autenticar, locaisCtrl.listar);
 router.post('/ativos', autenticar, apenasAdminOuTecnico, ativosCtrl.criar);
 router.put('/ativos/:id', autenticar, apenasAdminOuTecnico, ativosCtrl.atualizar);
 router.delete('/ativos/:id', autenticar, apenasAdmin, ativosCtrl.remover);
@@ -28,6 +30,7 @@ router.delete('/ativos/:id', autenticar, apenasAdmin, ativosCtrl.remover);
 router.get('/chamados', autenticar, chamadosCtrl.listar);
 router.get('/chamados/:id', autenticar, chamadosCtrl.buscarPorId);
 router.post('/chamados', autenticar, chamadosCtrl.criar);
+router.post('/chamados/:id/confirmacao', autenticar, chamadosCtrl.responderConfirmacao);
 router.put('/chamados/:id', autenticar, apenasAdminOuTecnico, chamadosCtrl.atualizar);
 
 router.get('/documentacoes', autenticar, docsCtrl.listar);

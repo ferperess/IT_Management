@@ -8,7 +8,7 @@ const {
 
 async function listar_ativos(req, res) {
   try {
-    const ativos = await prisma.aTIVOS.findMany({ orderBy: { nome: 'asc' } });
+    const ativos = await prisma.aTIVOS.findMany({ include: { local: true }, orderBy: { nome: 'asc' } });
     res.json(ativos);
   } catch (err) {
     if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
@@ -18,11 +18,12 @@ async function listar_ativos(req, res) {
 
 async function criar_ativo(req, res) {
   try {
-    const { nome, tipo, localizacao, data_aquisicao, status } = req.body;
+    const { nome, patrimonio, tipo, id_local, data_aquisicao, status } = req.body;
+    if (patrimonio !== undefined && typeof patrimonio !== 'string') return res.status(400).json({ erro: 'Patrimônio deve ser um texto.' });
     const statusNormalizado = status === 'EM_MANUTENCAO' ? 'MANUTENCAO' : status;
 
-    if (!nome || !tipo || !localizacao) {
-      return res.status(400).json({ erro: 'Campos obrigatórios: nome, tipo, localizacao.' });
+    if (!nome || !tipo || !id_local) {
+      return res.status(400).json({ erro: 'Campos obrigatórios: nome, tipo, id_local.' });
     }
 
     // Validação de tipo
@@ -40,11 +41,14 @@ async function criar_ativo(req, res) {
       return res.status(400).json({ erro: 'A data de aquisição não pode ser uma data futura.' });
     }
 
+    const local = await prisma.lOCAIS.findUnique({ where: { id: toId(id_local) } });
+    if (!local || local.status !== 'ATIVO') return res.status(400).json({ erro: 'Selecione um local ativo.' });
     const ativo = await prisma.aTIVOS.create({
       data: {
         nome,
+        patrimonio: patrimonio?.trim() || null,
         tipo,
-        localizacao,
+        id_local: local.id,
         data_aquisicao: data_aquisicao ? new Date(data_aquisicao) : null,
         status: statusNormalizado || 'ATIVO',
       },
@@ -59,7 +63,8 @@ async function criar_ativo(req, res) {
 async function atualizar_ativo(req, res) {
   try {
     const { id } = req.params;
-    const { nome, tipo, localizacao, data_aquisicao, status } = req.body;
+    const { nome, patrimonio, tipo, id_local, data_aquisicao, status } = req.body;
+    if (patrimonio !== undefined && typeof patrimonio !== 'string') return res.status(400).json({ erro: 'Patrimônio deve ser um texto.' });
     const statusNormalizado = status === 'EM_MANUTENCAO' ? 'MANUTENCAO' : status;
 
     // Validação de tipo
@@ -77,7 +82,19 @@ async function atualizar_ativo(req, res) {
       return res.status(400).json({ erro: 'A data de aquisição não pode ser uma data futura.' });
     }
 
-    const data = { nome, tipo, localizacao, status: statusNormalizado };
+    const data = { nome, tipo, status: statusNormalizado };
+    if (id_local !== undefined) {
+      const localId = toId(id_local);
+      const atual = await prisma.aTIVOS.findUnique({ where: { id: toId(id) } });
+      if (!atual) return res.status(404).json({ erro: 'Ativo não encontrado.' });
+      // Um vínculo inativo existente pode ser mantido, mas não atribuído a outro ativo.
+      if (atual.id_local !== localId) {
+        const local = await prisma.lOCAIS.findUnique({ where: { id: localId } });
+        if (!local || local.status !== 'ATIVO') return res.status(400).json({ erro: 'Selecione um local ativo.' });
+      }
+      data.id_local = localId;
+    }
+    if (patrimonio !== undefined) data.patrimonio = patrimonio.trim() || null;
     if (data_aquisicao) data.data_aquisicao = new Date(data_aquisicao);
     Object.keys(data).forEach(k => data[k] === undefined && delete data[k]);
 

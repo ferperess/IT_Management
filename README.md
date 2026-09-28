@@ -24,6 +24,12 @@ O banco PostgreSQL é mantido no Supabase. Alterações de schema devem ser regi
 
 O script `backend/sql/sla_documentacoes.sql` atende instalações que ainda não receberam as alterações de SLA e documentação. Antes de executá-lo, confira se os objetos que ele cria ou altera ainda não existem no projeto Supabase.
 
+Para a versão com patrimônio separado e confirmação de encerramento, aplique `backend/sql/ativos_confirmacao.sql` antes de iniciar o backend e gere novamente o cliente com `npx prisma generate`. O script preserva os nomes dos ativos existentes; o patrimônio pode ser preenchido na edição, sem tentar separar automaticamente dados antigos. Chamados anteriores continuam sem exigência de confirmação.
+
+Ao abrir um chamado, a opção de confirmação fica desmarcada por padrão. Quando marcada, a conclusão técnica coloca o chamado em Aguardando usuário e pausa o SLA enquanto o solicitante decide. Somente o solicitante pode confirmar o encerramento ou rejeitá-lo, retomando o atendimento e o SLA. A decisão fica registrada no histórico.
+
+Também aplique `backend/sql/locais.sql` antes de gerar o Prisma Client e iniciar esta versão. Ele cria `LOCAIS` (`id`, `nome`, `status` ATIVO/INATIVO), inclui os locais iniciais e vincula os ativos por `id_local`. Localizações antigas fora da lista são preservadas como locais inativos para revisão. O texto antigo permanece no banco para conferência; a aplicação usa o nome do local vinculado. Renomear um local reflete nos ativos; inativá-lo impede novas atribuições, preservando as existentes. A manutenção da tabela é feita diretamente pelos responsáveis no banco, com exemplos no próprio script. O dropdown consulta `GET /api/locais` ao abrir o formulário, sem lista fixa no frontend.
+
 ### 2. Frontend
 
 ```bash
@@ -151,11 +157,13 @@ IT_Management/
 | GET/PUT | /api/usuarios/:id | ADMIN |
 | PATCH | /api/usuarios/:id/inativar | ADMIN |
 | GET | /api/ativos | Qualquer autenticado |
+| GET | /api/locais | Qualquer autenticado; retorna somente locais ativos |
 | POST | /api/ativos | TECNICO / ADMIN |
 | PUT | /api/ativos/:id | TECNICO / ADMIN |
 | DELETE | /api/ativos/:id | ADMIN |
 | GET | /api/chamados e /api/chamados/:id | Qualquer autenticado |
 | POST | /api/chamados | Qualquer autenticado |
+| POST | /api/chamados/:id/confirmacao | Somente o solicitante do chamado |
 | PUT | /api/chamados/:id | TECNICO / ADMIN |
 | GET | /api/documentacoes, /api/documentacoes/:id e /api/documentacoes/:id/download | Qualquer autenticado |
 | POST | /api/documentacoes | TECNICO / ADMIN |

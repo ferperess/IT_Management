@@ -20,13 +20,16 @@ const statusOpts = ['ATIVO', 'MANUTENCAO', 'INATIVO'];
 const statusLabel = { ATIVO: 'Ativo', MANUTENCAO: 'Em Manutenção', EM_MANUTENCAO: 'Em Manutenção', INATIVO: 'Inativo/Baixado' };
 const badgeMap = { ATIVO: 'ativo', MANUTENCAO: 'manutencao', EM_MANUTENCAO: 'manutencao', INATIVO: 'inativo' };
 
-const formVazio = { nome: '', tipo: 'COMPUTADOR', localizacao: '', data_aquisicao: '', status: 'ATIVO' };
+const formVazio = { nome: '', patrimonio: '', tipo: 'COMPUTADOR', id_local: '', data_aquisicao: '', status: 'ATIVO' };
 
 export default function Ativos() {
   const { usuario } = useAuth();
   const podeEditar = ['ADMIN', 'TECNICO'].includes(usuario?.perfil);
 
   const [ativos, setAtivos] = useState([]);
+  const [locais, setLocais] = useState([]);
+  const [carregandoLocais, setCarregandoLocais] = useState(false);
+  const [erroLocais, setErroLocais] = useState('');
   const [carregandoLista, setCarregandoLista] = useState(true);
   const [erroLista, setErroLista] = useState('');
   const [form, setForm] = useState(formVazio);
@@ -49,20 +52,33 @@ export default function Ativos() {
 
   useEffect(() => { carregar(); }, []);
 
+  async function carregarLocais() {
+    setCarregandoLocais(true); setErroLocais('');
+    try {
+      const { data } = await api.get('/locais');
+      setLocais(data);
+    } catch { setErroLocais('Não foi possível carregar as localizações.'); }
+    finally { setCarregandoLocais(false); }
+  }
+  const ativoEditado = ativos.find(a => a.id === editandoId);
+  const localAnterior = ativoEditado?.local;
+
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
 
   function iniciarEdicao(a) {
     setEditandoId(a.id);
     setForm({
-      nome: a.nome, tipo: tipoLegado[a.tipo] || a.tipo, localizacao: a.localizacao || '',
+      nome: a.nome, patrimonio: a.patrimonio || '', tipo: tipoLegado[a.tipo] || a.tipo, id_local: a.id_local ? String(a.id_local) : '',
       data_aquisicao: a.data_aquisicao ? a.data_aquisicao.slice(0, 10) : '',
       status: a.status === 'EM_MANUTENCAO' ? 'MANUTENCAO' : a.status,
     });
     setMostrarForm(true);
+    carregarLocais();
     setErro(''); setSucesso('');
   }
 
   function novoForm() {
+    carregarLocais();
     setEditandoId(null);
     setForm(formVazio);
     setMostrarForm(true);
@@ -115,14 +131,15 @@ export default function Ativos() {
           ) : (
           <div className="table-scroll" role="region" aria-label="Tabela de ativos" tabIndex={0}><table className="cps-table">
             <thead>
-              <tr><th>Equipamento</th><th>Tipo</th><th>Localização</th><th>Status</th>{podeEditar && <th>Ações</th>}</tr>
+              <tr><th>Equipamento</th><th>Patrimônio</th><th>Tipo</th><th>Localização</th><th>Status</th>{podeEditar && <th>Ações</th>}</tr>
             </thead>
             <tbody>
               {ativos.map(a => (
                 <tr key={a.id}>
                   <td>{a.nome}</td>
+                  <td>{a.patrimonio || '—'}</td>
                   <td>{tipoLabel[a.tipo] || a.tipo}</td>
-                  <td>{a.localizacao}</td>
+                  <td>{a.local?.nome || a.localizacao || '—'}{a.local?.status === 'INATIVO' && ' (inativo)'}</td>
                   <td><span className={`badge badge-${badgeMap[a.status]}`}>{statusLabel[a.status]}</span></td>
                   {podeEditar && (
                     <td>
@@ -137,7 +154,7 @@ export default function Ativos() {
                 </tr>
               ))}
               {ativos.length === 0 && (
-                <tr><td colSpan={podeEditar ? 5 : 4} style={{ textAlign: 'center', color: '#999', padding: 20 }}>Nenhum ativo cadastrado.</td></tr>
+                <tr><td colSpan={podeEditar ? 6 : 5} style={{ textAlign: 'center', color: '#999', padding: 20 }}>Nenhum ativo cadastrado.</td></tr>
               )}
             </tbody>
           </table></div>
@@ -152,8 +169,12 @@ export default function Ativos() {
             {sucesso && <div className="alert alert-sucesso">{sucesso}</div>}
             <form onSubmit={handleSubmit}>
               <div className="form-group">
-                <label htmlFor="ativos-campo-1">Nome do Equipamento (Tag/Patrimônio)</label>
-                <input id="ativos-campo-1" className="form-control" placeholder="Ex: Desktop-Lab01-PC05" value={form.nome} onChange={set('nome')} required />
+                <label htmlFor="ativos-campo-1">Nome do Equipamento</label>
+                <input id="ativos-campo-1" className="form-control" placeholder="Ex: Desktop Dell OptiPlex" value={form.nome} onChange={set('nome')} required />
+              </div>
+              <div className="form-group">
+                <label htmlFor="ativos-patrimonio">Patrimônio</label>
+                <input id="ativos-patrimonio" className="form-control" placeholder="Ex: 001234" value={form.patrimonio} onChange={set('patrimonio')} />
               </div>
               <div className="form-row">
                 <div className="form-group">
@@ -164,7 +185,13 @@ export default function Ativos() {
                 </div>
                 <div className="form-group">
                   <label htmlFor="ativos-campo-3">Localização</label>
-                  <input id="ativos-campo-3" className="form-control" placeholder="Ex: Laboratório 1" value={form.localizacao} onChange={set('localizacao')} required />
+                  <select id="ativos-campo-3" className="form-control" value={form.id_local} onChange={set('id_local')} required disabled={carregandoLocais || !!erroLocais}>
+                    <option value="">{carregandoLocais ? 'Carregando localizações…' : 'Selecione a localização'}</option>
+                    {localAnterior && !locais.some(l => String(l.id) === String(localAnterior.id)) && <option value={String(localAnterior.id)}>{localAnterior.nome} (local atual)</option>}
+                    {locais.map(local => <option key={local.id} value={String(local.id)}>{local.nome}</option>)}
+                  </select>
+                  {erroLocais && <p role="alert">{erroLocais} <button type="button" className="btn btn-secondary btn-sm" onClick={carregarLocais}>Tentar novamente</button></p>}
+                  {!carregandoLocais && !erroLocais && locais.length === 0 && <p role="status">Nenhum local ativo cadastrado. Solicite o cadastro ao responsável.</p>}
                 </div>
               </div>
               <div className="form-row">
@@ -181,7 +208,7 @@ export default function Ativos() {
               </div>
               <div className="form-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setMostrarForm(false)}>Cancelar</button>
-                <button type="submit" className="btn btn-primary">Salvar Ativo</button>
+                <button type="submit" className="btn btn-primary" disabled={carregandoLocais || !!erroLocais}>Salvar Ativo</button>
               </div>
             </form>
           </div>

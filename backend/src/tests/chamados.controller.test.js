@@ -147,6 +147,27 @@ describe('chamadosController: criar', () => {
   });
 });
 
+describe('opção de confirmação na abertura', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    prisma.uSUARIOS.findUnique.mockResolvedValue({ id: 1n, nome: 'Solicitante' });
+    prisma.cHAMADOS.create.mockResolvedValue({ id: 1n, status: 'ABERTO' });
+    prisma.hISTORICO_CHAMADOS.create.mockResolvedValue({});
+  });
+  test.each([true, false, undefined])('persiste checkbox %s com padrão desmarcado', async exige_confirmacao => {
+    const res = mockRes();
+    await criar({ body: { titulo: 'Problema no PC', descricao: 'Computador não liga', exige_confirmacao }, usuario: { id: 1n } }, res);
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(prisma.cHAMADOS.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ exige_confirmacao: exige_confirmacao ?? false }) }));
+  });
+  test('não converte texto false em verdadeiro', async () => {
+    const res = mockRes();
+    await criar({ body: { titulo: 'Problema no PC', descricao: 'Computador não liga', exige_confirmacao: 'false' }, usuario: { id: 1n } }, res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(prisma.cHAMADOS.create).not.toHaveBeenCalled();
+  });
+});
+
 describe('chamadosController: atualizar', () => {
   beforeEach(() => jest.clearAllMocks());
 
