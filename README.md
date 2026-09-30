@@ -1,36 +1,67 @@
-# IT_Management
+# Gestão de TI (IT_Management)
 
-## Pré-requisitos
-- Node.js >= 18
-- npm >= 9
+Aplicação web para gerenciamento de chamados de TI, ativos, locais e documentação, com autenticação por perfil e acompanhamento de SLA.
 
----
+## Requisitos
+- Node.js 18 ou superior
+- npm 9 ou superior
+- Banco PostgreSQL provisionado no Supabase
+- Chave e modelo do OpenRouter para classificar chamados ao criá-los
 
-## Configuração e execução
+## Configuração
 
-### 1. Backend
+### Banco de dados
+
+O projeto usa PostgreSQL no Supabase. Não usa migrations do Prisma nem banco local por desenvolvedor. Mudanças de schema são mantidas em `backend/sql/` e aplicadas ao Supabase conforme o fluxo da equipe. `backend/prisma/schema.prisma` deve permanecer sincronizado com o banco.
+
+Os scripts SQL são atualizações incrementais para instalações existentes. Confira o estado do banco e aplique somente as alterações que ainda faltam; não os execute às cegas.
+
+| Script | Alterações |
+|---|---|
+| `backend/sql/sla_documentacoes.sql` | Campos e pausas de SLA, vínculos entre chamados e documentações, migração dos vínculos existentes. |
+| `backend/sql/ativos_confirmacao.sql` | Patrimônio dos ativos e confirmação de encerramento pelo solicitante. |
+| `backend/sql/locais.sql` | Tabela de locais, locais iniciais e vínculo dos ativos por `id_local`; preserva localizações antigas como inativas para revisão. |
+
+Depois de aplicar os scripts necessários, gere o cliente Prisma:
+
+```bash
+cd backend
+npx prisma generate
+```
+
+### Variáveis de ambiente
+
+Crie `backend/.env` com os valores do ambiente. Não versione esse arquivo nem compartilhe suas credenciais.
+
+```env
+DATABASE_URL=postgresql://usuario:senha@host:5432/banco
+JWT_SECRET=segredo-longo-e-aleatorio
+OPENROUTER_API_KEY=sua-chave
+OPENROUTER_MODEL=provedor/modelo-principal
+# Opcional: segunda tentativa de classificação
+OPENROUTER_FALLBACK_MODEL=provedor/modelo-alternativo
+# Opcionais; estes são os padrões locais
+PORT=3001
+FRONTEND_URL=http://localhost:5173
+```
+
+`DATABASE_URL`, `JWT_SECRET`, `OPENROUTER_API_KEY` e `OPENROUTER_MODEL` são necessários para a configuração completa. O modelo alternativo é opcional. Sem chave/modelo do OpenRouter, a criação de chamados não consegue concluir a classificação automática.
+Na classificação, o título e a descrição do chamado são enviados ao OpenRouter.
+
+## Executar
+
+Inicie o backend em um terminal:
 
 ```bash
 cd backend
 npm install
+npx prisma generate
 npm run dev
 ```
 
-O servidor sobe em: http://localhost:3001
+O backend inicia em `http://localhost:3001` por padrão.
 
-### Banco de dados
-
-O banco PostgreSQL é mantido no Supabase. Alterações de schema devem ser registradas em scripts SQL versionados em `backend/sql/`, revisadas pela equipe e aplicadas ao Supabase pelo fluxo definido pelos desenvolvedores. Atualize também `backend/prisma/schema.prisma` para manter o Prisma Client sincronizado com o banco. Este projeto não usa migrations do Prisma nem bancos locais por desenvolvedor.
-
-O script `backend/sql/sla_documentacoes.sql` atende instalações que ainda não receberam as alterações de SLA e documentação. Antes de executá-lo, confira se os objetos que ele cria ou altera ainda não existem no projeto Supabase.
-
-Para a versão com patrimônio separado e confirmação de encerramento, aplique `backend/sql/ativos_confirmacao.sql` antes de iniciar o backend e gere novamente o cliente com `npx prisma generate`. O script preserva os nomes dos ativos existentes; o patrimônio pode ser preenchido na edição, sem tentar separar automaticamente dados antigos. Chamados anteriores continuam sem exigência de confirmação.
-
-Ao abrir um chamado, a opção de confirmação fica desmarcada por padrão. Quando marcada, a conclusão técnica coloca o chamado em Aguardando usuário e pausa o SLA enquanto o solicitante decide. Somente o solicitante pode confirmar o encerramento ou rejeitá-lo, retomando o atendimento e o SLA. A decisão fica registrada no histórico.
-
-Também aplique `backend/sql/locais.sql` antes de gerar o Prisma Client e iniciar esta versão. Ele cria `LOCAIS` (`id`, `nome`, `status` ATIVO/INATIVO), inclui os locais iniciais e vincula os ativos por `id_local`. Localizações antigas fora da lista são preservadas como locais inativos para revisão. O texto antigo permanece no banco para conferência; a aplicação usa o nome do local vinculado. Renomear um local reflete nos ativos; inativá-lo impede novas atribuições, preservando as existentes. A manutenção da tabela é feita diretamente pelos responsáveis no banco, com exemplos no próprio script. O dropdown consulta `GET /api/locais` ao abrir o formulário, sem lista fixa no frontend.
-
-### 2. Frontend
+Inicie o frontend em outro terminal:
 
 ```bash
 cd frontend
@@ -38,7 +69,15 @@ npm install
 npm run dev
 ```
 
-A aplicação abre em: http://localhost:5173
+A aplicação fica em `http://localhost:5173`. O Vite encaminha `/api` para `http://localhost:3001`. Em outro ambiente, `VITE_API_URL` pode definir a URL base da API.
+
+Não há usuário de demonstração criado pelo repositório. Use uma conta provisionada para a instância; a criação de usuários pela aplicação é restrita a administradores.
+
+## Funcionalidades
+
+- Chamados classificados pelo OpenRouter, histórico, confirmação de encerramento e SLA em horas corridas. Prazos atendimento/resolução: Baixa `24h/120h`, Média `8h/24h`, Alta `1h/8h`, Crítica `15min/4h`; a espera do usuário pausa a resolução.
+- Gestão de ativos, patrimônio, locais e documentação com arquivos ou links; documentação pode ser vinculada a ativos e chamados.
+- `COMUM`: abre e consulta os próprios chamados, sem prazos SLA ou documentos vinculados no detalhe. `TECNICO`: gerencia chamados/ativos/documentação e vê relatórios. `ADMIN`: também administra usuários e remove registros.
 
 ---
 
@@ -60,85 +99,43 @@ cd backend
 npm run test:coverage
 ```
 
-### Estrutura dos testes
-
-```
-backend/src/tests/
-├── setup.js                       # Configuração de ambiente para testes
-├── auth.controller.test.js        # Login e autenticação
-├── auth.middleware.test.js        # JWT e autorização por perfil
-├── usuarios.controller.test.js    # Usuários e inativação
-├── ativos.controller.test.js      # Cadastro, atualização e remoção de ativos
-├── chamados.controller.test.js    # Chamados, SLA e dashboard
-├── documentacoes.links.test.js    # Vínculos entre chamados e documentação
-├── passwords.controllers.test.js  # Fluxos de senha nos controllers
-├── passwords.test.js              # Hash e verificação de senhas
-├── sla.controller.test.js         # Pausas e operações de SLA
-├── sla.service.test.js            # Cálculos de SLA
-└── apiService.test.js             # Classificação OpenRouter e validação da resposta
-```
-
-### O que é testado
-
-| Suite | Casos |
-|---|---|
-| Middleware de autenticação | Token válido, expirado, inválido, ausente; restrição por perfil ADMIN, TECNICO e COMUM |
-| Login | Campos ausentes, usuário inexistente, conta inativa, senha errada, sucesso, erro de banco |
-| Usuários | Listar, buscar por ID, criar com campos faltando, e-mail duplicado, atualizar, inativar |
-| Ativos | Listar, criar com campos faltando, criar com sucesso, atualizar, remover |
-| Chamados | Listar, buscar, criar sem campos obrigatórios, ativo inexistente, atualizar, dashboard |
-| Serviço OpenRouter | Classificação, resposta inválida, normalização e limites de entrada |
-| SLA | Prazos, pausas, transições e resultados de atendimento/resolução |
-| Documentação | Preservação e bloqueio de vínculos com chamados |
-| Senhas | Hash, verificação e fluxos dos controllers |
-
----
-
-## Usuário de teste
-
- E-mail: teste@teste.com  
- Senha: teste  
- Perfil: ADMIN
+Os testes usam mocks; não precisam de conexão com o Supabase ou com a API do OpenRouter.
 
 ---
 
 ## Estrutura do projeto
 
-```
+```text
 IT_Management/
 ├── backend/
-│   ├── prisma/
-│   │   └── schema.prisma             # Modelos PostgreSQL usados pelo Prisma Client
+│   ├── prisma/schema.prisma
 │   ├── sql/
-│   │   └── sla_documentacoes.sql     # Atualização manual para instalações existentes
+│   │   ├── ativos_confirmacao.sql
+│   │   ├── locais.sql
+│   │   └── sla_documentacoes.sql
 │   ├── src/
-│   │   ├── config/                   # Políticas de SLA
-│   │   ├── controllers/              # Lógica de negócio por domínio
-│   │   ├── middlewares/              # Autenticação JWT e autorização
-│   │   ├── routes/                   # Endpoints REST
-│   │   ├── services/                 # OpenRouter, SLA e escrita transacional
-│   │   ├── tests/                    # Testes unitários e de controllers
-│   │   ├── utils/                    # IDs e senhas
-│   │   ├── prisma.js                 # Cliente Prisma
-│   │   ├── validators.js             # Validações e regras de domínio
-│   │   └── server.js                 # Inicialização Express
+│   │   ├── config/          # Política de SLA
+│   │   ├── controllers/     # auth, usuários, ativos, locais, chamados e documentação
+│   │   ├── middlewares/     # Autenticação e autorização
+│   │   ├── routes/
+│   │   ├── services/        # OpenRouter, SLA e escrita transacional
+│   │   ├── tests/
+│   │   ├── utils/
+│   │   └── server.js
 │   └── package.json
 ├── frontend/
 │   ├── src/
-│   │   ├── assets/                   # Recursos estáticos
-│   │   ├── components/              # Navbar, seleção múltipla e painel SLA
-│   │   ├── context/                  # Estado de autenticação
-│   │   ├── hooks/                    # Hooks compartilhados
-│   │   ├── pages/                    # Login, dashboard e telas do sistema
-│   │   ├── services/                 # Cliente HTTP da API
-│   │   ├── utils/                    # Labels e apresentação de chamados
-│   │   ├── App.jsx                   # Rotas da aplicação
-│   │   ├── index.css                 # Estilos globais
-│   │   └── main.jsx                  # Inicialização React
+│   │   ├── components/     # Navbar, SLA e seleção múltipla
+│   │   ├── context/
+│   │   ├── hooks/
+│   │   ├── pages/           # Login, dashboard, chamados, ativos, usuários e documentação
+│   │   ├── services/
+│   │   ├── utils/
+│   │   ├── App.jsx
+│   │   └── index.css
 │   ├── index.html
 │   ├── package.json
-│   └── vite.config.js                # Proxy /api para o backend
-├── .gitignore
+│   └── vite.config.js
 ├── Contributors.md
 └── README.md
 ```
@@ -147,25 +144,9 @@ IT_Management/
 
 ## Endpoints da API
 
-| Método | Rota | Perfil mínimo |
-|--------|------|---------------|
-| POST | /api/auth/login | — |
-| GET | /api/dashboard | Qualquer autenticado |
-| GET | /api/relatorios | TECNICO / ADMIN |
-| GET | /api/usuarios | ADMIN |
-| POST | /api/usuarios | ADMIN |
-| GET/PUT | /api/usuarios/:id | ADMIN |
-| PATCH | /api/usuarios/:id/inativar | ADMIN |
-| GET | /api/ativos | Qualquer autenticado |
-| GET | /api/locais | Qualquer autenticado; retorna somente locais ativos |
-| POST | /api/ativos | TECNICO / ADMIN |
-| PUT | /api/ativos/:id | TECNICO / ADMIN |
-| DELETE | /api/ativos/:id | ADMIN |
-| GET | /api/chamados e /api/chamados/:id | Qualquer autenticado |
-| POST | /api/chamados | Qualquer autenticado |
-| POST | /api/chamados/:id/confirmacao | Somente o solicitante do chamado |
-| PUT | /api/chamados/:id | TECNICO / ADMIN |
-| GET | /api/documentacoes, /api/documentacoes/:id e /api/documentacoes/:id/download | Qualquer autenticado |
-| POST | /api/documentacoes | TECNICO / ADMIN |
-| PUT | /api/documentacoes/:id | TECNICO / ADMIN |
-| DELETE | /api/documentacoes/:id | ADMIN |
+- Autenticação e dashboard: `POST /api/auth/login`, `GET /api/dashboard`.
+- Chamados: `GET/POST /api/chamados`, `GET /api/chamados/:id`, `PUT /api/chamados/:id`; leitura é autenticada, `COMUM` vê apenas os próprios, edição exige `TECNICO` ou `ADMIN`.
+- Confirmação: `POST /api/chamados/:id/confirmacao`, somente pelo solicitante do chamado.
+- Ativos e locais: leitura autenticada; criar/editar ativos exige `TECNICO` ou `ADMIN`, remover exige `ADMIN`. `GET /api/locais` lista locais ativos.
+- Documentação: leitura e download autenticados; criar/editar exige `TECNICO` ou `ADMIN`, remover exige `ADMIN`.
+- Usuários: administração exclusiva de `ADMIN`. Relatórios: `TECNICO` ou `ADMIN`.

@@ -5,6 +5,18 @@ import api from '../services/api';
 import usePageTitle from '../hooks/usePageTitle';
 
 const formVazio = { titulo: '', descricao: '', link_externo: '', id_ativo: '' };
+const filtrosDocumentacaoVazios = { titulo: '', ativo: '', inicio: '', fim: '' };
+const normalizar = valor => String(valor ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+function validarLinkExterno(valor) {
+  if (typeof valor !== 'string') return '';
+  try {
+    const url = new URL(valor);
+    return url.protocol === 'https:' ? url.href : '';
+  } catch {
+    return '';
+  }
+}
 
 export default function Documentacao() {
   const { usuario } = useAuth();
@@ -14,12 +26,14 @@ export default function Documentacao() {
   const [carregandoLista, setCarregandoLista] = useState(true);
   const [erroLista, setErroLista] = useState('');
   const [ativos, setAtivos] = useState([]);
+  const [filtros, setFiltros] = useState(filtrosDocumentacaoVazios);
   const [salvando, setSalvando] = useState(false);
   const [form, setForm] = useState(formVazio);
   const [arquivo, setArquivo] = useState(null);
   const [editandoId, setEditandoId] = useState(null);
   const [lendoDoc, setLendoDoc] = useState(null);
   const [mostrarForm, setMostrarForm] = useState(false);
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
   const [baixando, setBaixando] = useState(null);
@@ -44,6 +58,7 @@ export default function Documentacao() {
   useEffect(() => { if (mostrarForm) formTitulo.current?.focus(); }, [mostrarForm]);
 
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
+  const mudarFiltro = campo => e => setFiltros(f => ({ ...f, [campo]: e.target.value }));
 
   function novoForm() {
     setEditandoId(null);
@@ -126,6 +141,18 @@ export default function Documentacao() {
     return d ? new Date(d).toLocaleDateString('pt-BR') : '-';
   }
 
+  const linkExternoSeguro = lendoDoc ? validarLinkExterno(lendoDoc.link_externo) : '';
+  const periodoInvalido = filtros.inicio && filtros.fim && filtros.inicio > filtros.fim;
+  const docsFiltrados = docs.filter(doc => {
+    const registro = new Date(doc.criado_em);
+    return !periodoInvalido
+      && (!filtros.titulo || normalizar(doc.titulo).includes(normalizar(filtros.titulo.trim())))
+      && (!filtros.ativo || String(doc.id_ativo ?? doc.ativo?.id ?? '') === filtros.ativo)
+      && (!filtros.inicio || registro >= new Date(`${filtros.inicio}T00:00:00`))
+      && (!filtros.fim || registro <= new Date(`${filtros.fim}T23:59:59.999`));
+  });
+  const haFiltros = Object.values(filtros).some(Boolean);
+
   return (
     <>
       <Navbar />
@@ -140,11 +167,11 @@ export default function Documentacao() {
               <form onSubmit={handleSubmit} style={{ marginTop: 15 }}>
                 <div className="form-group">
                   <label htmlFor="documentacao-campo-1">Título do Documento</label>
-                  <input ref={formTitulo} id="documentacao-campo-1" className="form-control" placeholder="Título descritivo" value={form.titulo} onChange={set('titulo')} required />
+                  <input ref={formTitulo} id="documentacao-campo-1" className="form-control" placeholder="Manual de Configuração da Rede Wi-Fi" value={form.titulo} onChange={set('titulo')} required />
                 </div>
                 <div className="form-group">
                   <label htmlFor="documentacao-campo-2">Descrição</label>
-                  <textarea id="documentacao-campo-2" className="form-control" rows={3} value={form.descricao} onChange={set('descricao')} />
+                  <textarea id="documentacao-campo-2" className="form-control" rows={3} value={form.descricao} onChange={set('descricao')} required />
                 </div>
                 <div className="form-group">
                   <label htmlFor="documentacao-campo-3">Ativo Relacionado (Opcional)</label>
@@ -162,7 +189,7 @@ export default function Documentacao() {
                   </div>
                   <div className="form-group">
                     <label htmlFor="documentacao-campo-6">Arquivo (PDF, DOC, DOCX, JPG ou PNG)</label>
-                    <input id="documentacao-campo-6" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="form-control" style={{ padding: 7 }} onChange={e => setArquivo(e.target.files[0])} />
+                    <input id="documentacao-campo-6" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="form-control" style={{ padding: 7 }} onChange={e => setArquivo(e.target.files[0])} required={!editandoId} />
                     {editandoId && <small style={{ color: '#999' }}>Deixe em branco para manter o arquivo atual.</small>}
                   </div>
                 </div>
@@ -177,21 +204,55 @@ export default function Documentacao() {
         <div className="card-box">
           <div className="page-header">
             <h2>Base de Conhecimento / Documentação</h2>
-            {podeEditar && (
-              <button ref={formBotao} className="btn btn-primary" aria-expanded={mostrarForm} aria-controls="documentacao-formulario" onClick={() => mostrarForm ? setMostrarForm(false) : novoForm()}>
-                {mostrarForm ? 'Recolher formulário' : '+ Novo Documento'}
+            <div className="document-list-actions">
+              {podeEditar && (
+                <button ref={formBotao} className="btn btn-primary" aria-expanded={mostrarForm} aria-controls="documentacao-formulario" onClick={() => mostrarForm ? setMostrarForm(false) : novoForm()}>
+                  {mostrarForm ? 'Recolher formulário' : '+ Novo Documento'}
+                </button>
+              )}
+              <button type="button" className="btn btn-primary" aria-expanded={filtrosAbertos} aria-controls="documentacao-filtros" onClick={() => setFiltrosAbertos(aberto => !aberto)}>
+                Filtro{haFiltros ? ` (${Object.values(filtros).filter(Boolean).length})` : ''}
               </button>
-            )}
+            </div>
+          </div>
+          <div id="documentacao-filtros" className="documentation-filter-panel" hidden={!filtrosAbertos}>
+            <div className="form-row documentation-filters">
+              <div className="form-group">
+                <label htmlFor="documentacao-filtro-titulo">Buscar por título</label>
+                <input id="documentacao-filtro-titulo" type="search" className="form-control" placeholder="Título do documento" value={filtros.titulo} onChange={mudarFiltro('titulo')} />
+              </div>
+              <div className="form-group">
+                <label htmlFor="documentacao-filtro-ativo">Ativo</label>
+                <select id="documentacao-filtro-ativo" className="form-control" value={filtros.ativo} onChange={mudarFiltro('ativo')}>
+                  <option value="">Todos</option>
+                  {ativos.map(a => <option key={a.id} value={String(a.id)}>{a.nome}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="documentacao-filtro-inicio">Registro a partir de</label>
+                <input id="documentacao-filtro-inicio" type="date" lang="pt-BR" className="form-control" value={filtros.inicio} max={filtros.fim || undefined} onChange={mudarFiltro('inicio')} />
+              </div>
+              <div className="form-group">
+                <label htmlFor="documentacao-filtro-fim">Registro até</label>
+                <input id="documentacao-filtro-fim" type="date" lang="pt-BR" className="form-control" value={filtros.fim} min={filtros.inicio || undefined} onChange={mudarFiltro('fim')} />
+              </div>
+            </div>
+            {periodoInvalido && <div className="alert alert-erro" role="alert">A data final deve ser igual ou posterior à inicial.</div>}
           </div>
           {carregandoLista ? <p className="list-feedback" role="status">Carregando documentos…</p> : erroLista ? (
             <div className="alert alert-erro" role="alert">{erroLista} <button type="button" className="btn btn-secondary btn-sm" onClick={() => carregar()}>Tentar novamente</button></div>
           ) : (
+          <>
+          <div className="document-results">
+            <p role="status">{docsFiltrados.length} de {docs.length} documentos</p>
+            {haFiltros && <button type="button" className="btn btn-secondary btn-sm" onClick={() => setFiltros(filtrosDocumentacaoVazios)}>Limpar filtros</button>}
+          </div>
           <div className="table-scroll" role="region" aria-label="Tabela de documentos" tabIndex={0}><table className="cps-table">
             <thead>
               <tr><th>Título</th><th>Ativo Vinculado</th><th>Responsável</th><th>Data Registro</th><th>Ações</th></tr>
             </thead>
             <tbody>
-              {docs.map(d => (
+              {docsFiltrados.map(d => (
                 <tr key={d.id}>
                   <td>{d.titulo}</td>
                   <td>{d.ativo ? d.ativo.nome : <span style={{ color: '#bbb' }}>—</span>}</td>
@@ -229,11 +290,14 @@ export default function Documentacao() {
                   </td>
                 </tr>
               ))}
-              {docs.length === 0 && (
-                <tr><td colSpan={6} style={{ textAlign: 'center', color: '#999', padding: 20 }}>Nenhum documento cadastrado.</td></tr>
+              {docs.length === 0 ? (
+                <tr><td colSpan={5} style={{ textAlign: 'center', color: '#999', padding: 20 }}>Nenhum documento cadastrado.</td></tr>
+              ) : docsFiltrados.length === 0 && (
+                <tr><td colSpan={5} style={{ textAlign: 'center', color: '#999', padding: 20 }}>Nenhum documento corresponde aos filtros.</td></tr>
               )}
             </tbody>
           </table></div>
+          </>
           )}
         </div>
 
@@ -249,28 +313,26 @@ export default function Documentacao() {
             </p>
             {lendoDoc.ativo && (
               <p style={{ marginBottom: 6 }}>
-                🖥️ <strong>Ativo vinculado:</strong> {lendoDoc.ativo.nome}
+                <strong>Ativo vinculado:</strong> {lendoDoc.ativo.nome}
               </p>
             )}
-            {!!lendoDoc.chamados?.length && <div><strong>Chamados que usam este documento:</strong><ul>{lendoDoc.chamados.map(c => <li key={c.id}>#{c.id} — {c.titulo}</li>)}</ul></div>}
+            {!!lendoDoc.chamados?.length && <div><strong>Chamados que usam este documento:</strong><ul className="document-linked-tickets">{lendoDoc.chamados.map(c => <li key={c.id}>#{c.id} — {c.titulo}</li>)}</ul></div>}
             {lendoDoc.descricao && <p style={{ marginBottom: 10, marginTop: 10 }}>{lendoDoc.descricao}</p>}
-            {lendoDoc.link_externo && (
-              <p><a href={lendoDoc.link_externo} target="_blank" rel="noreferrer" style={{ color: 'var(--cps-vermelho)' }}>
+            {linkExternoSeguro && (
+              <p><a href={linkExternoSeguro} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--cps-vermelho)' }}>
                 🔗 {lendoDoc.link_externo}
               </a></p>
             )}
             {lendoDoc.arquivo_nome && (
-              <p style={{ marginTop: 10 }}>
-                📎 {lendoDoc.arquivo_nome}{' '}
-                <button
-                  className="btn btn-secondary btn-sm"
-                  style={{ marginLeft: 8 }}
-                  onClick={() => baixarArquivo(lendoDoc)}
-                  disabled={baixando === lendoDoc.id}
-                >
-                  {baixando === lendoDoc.id ? 'Baixando...' : 'Baixar'}
-                </button>
-              </p>
+              <button
+                type="button"
+                className="btn btn-secondary document-download-button"
+                style={{ marginTop: 10 }}
+                onClick={() => baixarArquivo(lendoDoc)}
+                disabled={baixando === lendoDoc.id}
+              >
+                {baixando === lendoDoc.id ? 'Baixando…' : `Baixar ${lendoDoc.arquivo_nome}`}
+              </button>
             )}
           </div>
         )}

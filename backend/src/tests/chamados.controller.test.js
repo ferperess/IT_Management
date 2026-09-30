@@ -51,6 +51,24 @@ describe('chamadosController: listar', () => {
     ]));
   });
 
+  test('não deve expor prazos nem pausas de SLA para usuário comum', async () => {
+    prisma.cHAMADOS.findMany.mockResolvedValue([{
+      id: 1, titulo: 'Problema no PC', status: 'ABERTO', criado_em: new Date(),
+      prazo_atendimento_em: new Date(), prazo_resolucao_em: new Date(),
+      pausas_sla: [{ iniciado_em: new Date(), encerrado_em: null }],
+    }]);
+    const req = { usuario: { perfil: 'COMUM', id: 1n } };
+    const res = mockRes();
+
+    await listar(req, res);
+
+    const [chamado] = res.json.mock.calls[0][0];
+    expect(chamado).not.toHaveProperty('sla');
+    expect(chamado).not.toHaveProperty('prazo_atendimento_em');
+    expect(chamado).not.toHaveProperty('prazo_resolucao_em');
+    expect(chamado).not.toHaveProperty('pausas_sla');
+  });
+
   test('deve retornar 500 em erro de banco', async () => {
     prisma.cHAMADOS.findMany.mockRejectedValue(new Error('DB error'));
     const req = {};
@@ -75,6 +93,26 @@ describe('chamadosController: buscarPorId', () => {
     await buscarPorId(req, res);
 
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ id: 1, titulo: 'Problema no PC', sla: expect.any(Object) }));
+  });
+
+  test('não deve expor prazos nem pausas de SLA nos detalhes para usuário comum', async () => {
+    prisma.cHAMADOS.findUnique.mockResolvedValue({
+      id: 1, id_solicitante: 1n, titulo: 'Problema no PC', status: 'AGUARDANDO_USUARIO', criado_em: new Date(),
+      prazo_atendimento_em: new Date(), prazo_resolucao_em: new Date(),
+      pausas_sla: [{ iniciado_em: new Date(), encerrado_em: null }],
+      documentos_vinculados: [{ documentacao: { id: 2n, titulo: 'Manual', arquivo_nome: 'manual.pdf' } }],
+    });
+    const req = { params: { id: '1' }, usuario: { perfil: 'COMUM', id: 1n } };
+    const res = mockRes();
+
+    await buscarPorId(req, res);
+
+    const chamado = res.json.mock.calls[0][0];
+    expect(chamado).not.toHaveProperty('sla');
+    expect(chamado).not.toHaveProperty('prazo_atendimento_em');
+    expect(chamado).not.toHaveProperty('prazo_resolucao_em');
+    expect(chamado).not.toHaveProperty('pausas_sla');
+    expect(chamado).not.toHaveProperty('documentos_vinculados');
   });
 
   test('deve retornar 404 se não encontrar', async () => {
@@ -189,12 +227,15 @@ describe('chamadosController: atualizar', () => {
     prisma.cHAMADOS.update.mockResolvedValue(chamadoAtualizado);
     prisma.hISTORICO_CHAMADOS.create.mockResolvedValue({});
 
-    const req = { params: { id: '1' }, body: { status: 'EM_ANDAMENTO' }, usuario: { id: 1n, perfil: 'ADMIN' } };
+    const req = { params: { id: '1' }, body: { status: 'EM_ANDAMENTO', comentario: 'TV dando imagem novamente' }, usuario: { id: 1n, perfil: 'ADMIN' } };
     const res = mockRes();
 
     await atualizar(req, res);
 
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ id: 1n, status: 'EM_ANDAMENTO', sla: expect.any(Object) }));
+    expect(prisma.hISTORICO_CHAMADOS.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ comentario: expect.stringContaining('Comentário: TV dando imagem novamente') }),
+    }));
   });
 });
 

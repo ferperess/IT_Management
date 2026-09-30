@@ -19,12 +19,23 @@ const include = {
   historico: { include: { usuario: { select: { nome: true } } }, orderBy: { criado_em: 'asc' } },
 };
 
+function apresentarChamado(chamado, usuario) {
+  const resposta = comSla(chamado);
+  if (usuario?.perfil !== 'COMUM') return resposta;
+  delete resposta.sla;
+  delete resposta.prazo_atendimento_em;
+  delete resposta.prazo_resolucao_em;
+  delete resposta.pausas_sla;
+  delete resposta.documentos_vinculados;
+  return resposta;
+}
+
 async function listar_chamados(req, res) {
   try {
     const { perfil, id } = req.usuario;
     const where = perfil === 'COMUM' ? { id_solicitante: id } : {};
     const chamados = await prisma.cHAMADOS.findMany({ where, include: { solicitante: include.solicitante, ativo: include.ativo, tecnico: include.tecnico, pausas_sla: include.pausas_sla }, orderBy: { criado_em: 'desc' } });
-    res.json(chamados.map(comSla));
+    res.json(chamados.map(chamado => apresentarChamado(chamado, req.usuario)));
   } catch (err) {
     if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
     res.status(500).json({ erro: 'Erro ao listar chamados.' });
@@ -38,7 +49,7 @@ async function buscarPorId(req, res) {
     if (req.usuario.perfil === 'COMUM' && c.id_solicitante !== req.usuario.id) {
       return res.status(403).json({ erro: 'Acesso negado.' });
     }
-    res.json(comSla(c));
+    res.json(apresentarChamado(c, req.usuario));
   } catch (err) {
     if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
     res.status(500).json({ erro: 'Erro ao buscar chamado.' });
@@ -101,7 +112,7 @@ async function criar_chamado(req, res) {
 
     // O aviso também fica no histórico persistido, disponível após recarregar.
     res.status(201).json({
-      ...comSla(chamado),
+      ...apresentarChamado(chamado, req.usuario),
       historico: [...(chamado.historico || []), historicoAbertura],
       aviso,
     });
@@ -175,12 +186,12 @@ async function atualizar_chamado(req, res) {
         }
       }
       await tx.cHAMADOS.update({ where: { id }, data: { ...data, atualizado_em: agora } });
-      if (comentario?.trim()) eventos.push(comentario.trim());
+      if (comentario?.trim()) eventos.push(`Comentário: ${comentario.trim()}`);
       if (!eventos.length) eventos.push('Dados do chamado atualizados.');
       await tx.hISTORICO_CHAMADOS.create({ data: { id_chamado: id, id_usuario: req.usuario.id, comentario: eventos.join('\n'), status_novo: mudouStatus ? status : null } });
       return tx.cHAMADOS.findUnique({ where: { id }, include });
     });
-    res.json(comSla(updated));
+    res.json(apresentarChamado(updated, req.usuario));
   } catch (err) {
     if (err.httpStatus) return res.status(err.httpStatus).json({ erro: err.message });
     if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
@@ -207,7 +218,7 @@ async function responderConfirmacao(req, res) {
       await tx.hISTORICO_CHAMADOS.create({ data: { id_chamado: id, id_usuario: req.usuario.id, status_novo: status, comentario: confirmar ? 'Encerramento confirmado pelo solicitante.' : 'Encerramento rejeitado pelo solicitante. Atendimento retomado.' } });
       return tx.cHAMADOS.findUnique({ where: { id }, include });
     });
-    res.json(comSla(updated));
+    res.json(apresentarChamado(updated, req.usuario));
   } catch (err) {
     if (err.httpStatus) return res.status(err.httpStatus).json({ erro: err.message });
     if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });

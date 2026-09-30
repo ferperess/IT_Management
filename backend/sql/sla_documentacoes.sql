@@ -1,4 +1,3 @@
--- Executar no SQL Editor do Supabase durante a troca de versão.
 -- Não executa DROP e não substitui dados de SLA existentes.
 BEGIN;
 
@@ -47,7 +46,6 @@ CREATE TABLE IF NOT EXISTS public."CHAMADOS_DOCUMENTACOES" (
 CREATE INDEX IF NOT EXISTS "CHAMADOS_DOCUMENTACOES_documentacao_idx" ON public."CHAMADOS_DOCUMENTACOES" (id_documentacao);
 ALTER TABLE public."CHAMADOS_DOCUMENTACOES" ENABLE ROW LEVEL SECURITY;
 
--- A coluna permanece para compatibilidade do schema. A aplicação nova não a lê.
 -- Copiar e limpar juntos evita que uma execução futura restaure vínculos removidos.
 LOCK TABLE public."DOCUMENTACOES" IN SHARE ROW EXCLUSIVE MODE;
 INSERT INTO public."CHAMADOS_DOCUMENTACOES" (id_chamado, id_documentacao)

@@ -121,7 +121,7 @@ export default function Ativos() {
       <main>
         <div className="card-box">
           <div className="page-header">
-            <h2>Gestão de Ativos de TI</h2>
+            <h2>Gestão de Ativos</h2>
             {podeEditar && (
               <button className="btn btn-primary" onClick={novoForm}>+ Cadastrar Ativo</button>
             )}
@@ -162,7 +162,7 @@ export default function Ativos() {
         </div>
 
         {mostrarForm && podeEditar && (
-          <div className="card-box">
+          <div className="card-box ativos-form">
             <h2>{editandoId ? 'Editar Ativo' : 'Cadastrar Ativo'}</h2>
             <hr className="divider" />
             {erro && <div className="alert alert-erro">{erro}</div>}
@@ -174,12 +174,12 @@ export default function Ativos() {
               </div>
               <div className="form-group">
                 <label htmlFor="ativos-patrimonio">Patrimônio</label>
-                <input id="ativos-patrimonio" className="form-control" placeholder="Ex: 001234" value={form.patrimonio} onChange={set('patrimonio')} />
+                <input id="ativos-patrimonio" className="form-control" placeholder="Ex: 001234" value={form.patrimonio} onChange={set('patrimonio')} required />
               </div>
               <div className="form-row">
                 <div className="form-group">
                   <label htmlFor="ativos-campo-2">Tipo</label>
-                  <select id="ativos-campo-2" className="form-control" value={form.tipo} onChange={set('tipo')}>
+                  <select id="ativos-campo-2" className="form-control" value={form.tipo} onChange={set('tipo')} required>
                     {tiposOpts.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                 </div>
@@ -197,11 +197,11 @@ export default function Ativos() {
               <div className="form-row">
                 <div className="form-group">
                   <label htmlFor="ativos-campo-4">Data de Aquisição</label>
-                  <input id="ativos-campo-4" type="date" className="form-control" value={form.data_aquisicao} onChange={set('data_aquisicao')} />
+                  <input id="ativos-campo-4" type="date" className="form-control" value={form.data_aquisicao} onChange={set('data_aquisicao')} required />
                 </div>
                 <div className="form-group">
                   <label htmlFor="ativos-campo-5">Status</label>
-                  <select id="ativos-campo-5" className="form-control" value={form.status} onChange={set('status')}>
+                  <select id="ativos-campo-5" className="form-control" value={form.status} onChange={set('status')} required>
                     {statusOpts.map(s => <option key={s} value={s}>{statusLabel[s]}</option>)}
                   </select>
                 </div>

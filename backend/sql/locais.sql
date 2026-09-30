@@ -1,4 +1,3 @@
--- Aplicar no SQL Editor do Supabase antes de iniciar a nova versão.
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS public."LOCAIS" (

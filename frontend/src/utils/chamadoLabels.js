@@ -1,10 +1,28 @@
 export const statusLabel = { ABERTO: 'Aberto', EM_ANDAMENTO: 'Em andamento', AGUARDANDO_USUARIO: 'Aguardando usuário', CONCLUIDO: 'Concluído', CANCELADO: 'Cancelado' };
 
-// Formata somente os modelos de mensagem do sistema, preservando comentários livres.
+const eventosHistorico = [
+  /^Chamado aberto por /,
+  /^Status alterado para (ABERTO|EM_ANDAMENTO|AGUARDANDO_USUARIO|CONCLUIDO|CANCELADO|Aberto|Em andamento|Aguardando usuário|Concluído|Cancelado)\.$/,
+  /^Motivo da espera: /,
+  /^Prioridade alterada\. Os prazos de SLA originais foram preservados\.$/,
+  /^Documentações relacionadas atualizadas\.$/,
+  /^Dados do chamado atualizados\.$/,
+  /^Encerramento confirmado pelo solicitante\.$/,
+  /^Encerramento rejeitado pelo solicitante\. Atendimento retomado\.$/,
+];
+
 export function formatarHistorico(comentario) {
   if (typeof comentario !== 'string') return '';
-  return comentario.replace(/^Status alterado para (ABERTO|EM_ANDAMENTO|AGUARDANDO_USUARIO|CONCLUIDO|CANCELADO)\.$/,
-    (_, status) => `Status alterado para ${statusLabel[status]}.`);
+  const linhas = comentario.split('\n');
+  const eventos = [];
+  while (linhas.length && eventosHistorico.some(evento => evento.test(linhas[0]))) {
+    const linha = linhas.shift();
+    eventos.push(linha.replace(/^Status alterado para (ABERTO|EM_ANDAMENTO|AGUARDANDO_USUARIO|CONCLUIDO|CANCELADO)\.$/,
+      (_, status) => `Status alterado para ${statusLabel[status]}.`));
+  }
+  const textoLivre = linhas.join('\n').trim();
+  if (textoLivre) eventos.push(textoLivre.startsWith('Comentário:') ? textoLivre : `Comentário: ${textoLivre}`);
+  return eventos.join('\n');
 }
 
 export function formatarErroChamado(mensagem) {

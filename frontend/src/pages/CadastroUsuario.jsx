@@ -54,7 +54,7 @@ export default function CadastroUsuario() {
     <>
       <Navbar />
       <main>
-        <div className="card-box">
+        <div className="card-box cadastro-usuario-form">
           <h2>{isEdicao ? 'Editar Usuário' : 'Cadastrar Usuário'}</h2>
           <hr className="divider" />
           {erro && <div className="alert alert-erro">{erro}</div>}
