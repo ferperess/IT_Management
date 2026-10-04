@@ -74,7 +74,7 @@ export default function Usuarios() {
                   <td>{u.email}</td>
                   <td>{perfilLabel[u.perfil] || u.perfil}</td>
                   <td>
-                    <span className={`badge badge-${u.status === 'ATIVO' ? 'ativo' : 'inativo'}`}>
+                    <span className={`badge badge-user-status badge-${u.status === 'ATIVO' ? 'ativo' : 'inativo'}`}>
                       {u.status}
                     </span>
                   </td>
