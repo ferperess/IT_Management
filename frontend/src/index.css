@@ -288,8 +288,9 @@ hr.divider { margin: 15px 0; border: 0; border-top: 1px solid var(--cps-borda); 
 .badge-andamento { background: #eaf4fb; color: #2471a3; border: 1px solid #2471a3; }
 .badge-concluido { background: #eafaf1; color: #1e8449; border: 1px solid #27ae60; }
 .badge-cancelado { background: #fdecea; color: #c0392b; border: 1px solid #e74c3c; }
+.badge-ativo, .badge-inativo { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 76px; line-height: 1; }
 .badge-ativo { background: #eafaf1; color: #1e8449; border: 1px solid #27ae60; }
-.badge-inativo { background: #f2f3f4; color: #7f8c8d; border: 1px solid #bdc3c7; }
+.badge-inativo { background: #e2e8f0; color: #334155; border: 1px solid #556883; }
 .badge-manutencao { background: #fef5e7; color: #d35400; border: 1px solid #e67e22; }
 
 /* Badges prioridade */
