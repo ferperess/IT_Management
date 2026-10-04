@@ -63,46 +63,79 @@ async function criar_ativo(req, res) {
 async function atualizar_ativo(req, res) {
   try {
     const { id } = req.params;
-    const { nome, patrimonio, tipo, id_local, data_aquisicao, status } = req.body;
-    if (patrimonio !== undefined && typeof patrimonio !== 'string') return res.status(400).json({ erro: 'Patrimônio deve ser um texto.' });
-    const statusNormalizado = status === 'EM_MANUTENCAO' ? 'MANUTENCAO' : status;
-
-    // Validação de tipo
-    if (tipo && !TIPOS_ATIVO_VALIDOS.includes(tipo)) {
-      return res.status(400).json({ erro: `Tipo inválido. Valores aceitos: ${TIPOS_ATIVO_VALIDOS.join(', ')}.` });
+    const permitidos = ['status', 'id_local'];
+    const camposRecebidos = Object.keys(req.body || {});
+    if (camposRecebidos.some(campo => !permitidos.includes(campo))) {
+      return res.status(400).json({ erro: 'Somente status e localização podem ser alterados.' });
     }
+    if (!camposRecebidos.length) return res.status(400).json({ erro: 'Informe um status ou uma localização para atualizar.' });
 
-    // Validação de status
-    if (statusNormalizado && !STATUS_ATIVO_VALIDOS.includes(statusNormalizado)) {
+    const { id_local, status } = req.body;
+    const statusNormalizado = status === 'EM_MANUTENCAO' ? 'MANUTENCAO' : status;
+    if (statusNormalizado !== undefined && !STATUS_ATIVO_VALIDOS.includes(statusNormalizado)) {
       return res.status(400).json({ erro: `Status inválido. Valores aceitos: ${STATUS_ATIVO_VALIDOS.join(', ')}.` });
     }
 
-    // Data de aquisição não pode ser futura
-    if (data_aquisicao && !validarDataPassada(data_aquisicao)) {
-      return res.status(400).json({ erro: 'A data de aquisição não pode ser uma data futura.' });
-    }
+    const ativoId = toId(id);
+    const atual = await prisma.aTIVOS.findUnique({ where: { id: ativoId }, include: { local: true } });
+    if (!atual) return res.status(404).json({ erro: 'Ativo não encontrado.' });
 
-    const data = { nome, tipo, status: statusNormalizado };
+    const data = {};
+    const eventos = [];
+    const statusAtual = atual.status === 'EM_MANUTENCAO' ? 'MANUTENCAO' : atual.status;
+    if (statusNormalizado !== undefined && statusNormalizado !== statusAtual) {
+      data.status = statusNormalizado;
+      eventos.push(`Status alterado de ${statusAtual} para ${statusNormalizado}.`);
+    }
     if (id_local !== undefined) {
       const localId = toId(id_local);
-      const atual = await prisma.aTIVOS.findUnique({ where: { id: toId(id) } });
-      if (!atual) return res.status(404).json({ erro: 'Ativo não encontrado.' });
-      // Um vínculo inativo existente pode ser mantido, mas não atribuído a outro ativo.
       if (atual.id_local !== localId) {
         const local = await prisma.lOCAIS.findUnique({ where: { id: localId } });
         if (!local || local.status !== 'ATIVO') return res.status(400).json({ erro: 'Selecione um local ativo.' });
+        data.id_local = localId;
+        eventos.push(`Localização alterada de ${atual.local?.nome || 'não informada'} para ${local.nome}.`);
       }
-      data.id_local = localId;
     }
-    if (patrimonio !== undefined) data.patrimonio = patrimonio.trim() || null;
-    if (data_aquisicao) data.data_aquisicao = new Date(data_aquisicao);
-    Object.keys(data).forEach(k => data[k] === undefined && delete data[k]);
 
-    const ativo = await prisma.aTIVOS.update({ where: { id: toId(id) }, data });
+    if (!eventos.length) return res.json(atual);
+
+    const ativo = await prisma.$transaction(async tx => {
+      const atualizado = await tx.aTIVOS.update({
+        where: { id: ativoId },
+        data,
+        include: { local: true },
+      });
+      await tx.hISTORICO_ATIVOS.create({
+        data: {
+          id_ativo: ativoId,
+          id_usuario: req.usuario.id,
+          comentario: eventos.join('\n'),
+        },
+      });
+      return atualizado;
+    });
     res.json(ativo);
   } catch (err) {
     if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
-    res.status(404).json({ erro: 'Ativo não encontrado.' });
+    res.status(500).json({ erro: 'Erro ao atualizar ativo.' });
+  }
+}
+
+async function historico_ativo(req, res) {
+  try {
+    const id = toId(req.params.id);
+    const ativo = await prisma.aTIVOS.findUnique({ where: { id }, select: { id: true } });
+    if (!ativo) return res.status(404).json({ erro: 'Ativo não encontrado.' });
+
+    const historico = await prisma.hISTORICO_ATIVOS.findMany({
+      where: { id_ativo: id },
+      include: { usuario: { select: { nome: true } } },
+      orderBy: { criado_em: 'desc' },
+    });
+    res.json(historico);
+  } catch (err) {
+    if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
+    res.status(500).json({ erro: 'Erro ao buscar histórico do ativo.' });
   }
 }
 
@@ -130,4 +163,4 @@ async function remover_ativo(req, res) {
   }
 }
 
-module.exports = { listar: listar_ativos, criar: criar_ativo, atualizar: atualizar_ativo, remover: remover_ativo };
+module.exports = { listar: listar_ativos, criar: criar_ativo, atualizar: atualizar_ativo, historico: historico_ativo, remover: remover_ativo };

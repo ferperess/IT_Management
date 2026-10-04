@@ -9,15 +9,20 @@ jest.mock('../prisma', () => ({
     update: jest.fn(),
     delete: jest.fn(),
   },
+  hISTORICO_ATIVOS: { findMany: jest.fn(), create: jest.fn() },
+  $transaction: jest.fn(),
 }));
 
 const prisma = require('../prisma');
-const { listar, criar, atualizar, remover } = require('../controllers/ativosController');
+const { listar, criar, atualizar, historico, remover } = require('../controllers/ativosController');
 const { listar: listarLocais } = require('../controllers/locaisController');
 
 beforeEach(() => {
   prisma.lOCAIS.findUnique.mockResolvedValue({ id: 1n, nome: 'Secretaria', status: 'ATIVO' });
-  prisma.aTIVOS.findUnique.mockResolvedValue({ id: 1n, id_local: 1n });
+  prisma.aTIVOS.findUnique.mockResolvedValue({
+    id: 1n, id_local: 1n, status: 'ATIVO', local: { id: 1n, nome: 'Secretaria' },
+  });
+  prisma.$transaction.mockImplementation(callback => callback(prisma));
 });
 
 function mockRes() {
@@ -105,26 +110,86 @@ describe('ativosController: criar', () => {
 describe('ativosController: atualizar', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  test('deve atualizar ativo com dados válidos', async () => {
-    const ativoAtualizado = { id: 1, nome: 'Notebook Atualizado', tipo: 'COMPUTADOR', id_local: '2', status: 'ATIVO' };
+  test('atualiza status e registra o evento com o usuário responsável', async () => {
+    const ativoAtualizado = { id: 1n, nome: 'Notebook', status: 'MANUTENCAO' };
     prisma.aTIVOS.update.mockResolvedValue(ativoAtualizado);
-    const req = { params: { id: '1' }, body: { nome: 'Notebook Atualizado', id_local: '2' } };
+    const req = { params: { id: '1' }, usuario: { id: 2n }, body: { status: 'MANUTENCAO' } };
     const res = mockRes();
 
     await atualizar(req, res);
 
     expect(res.json).toHaveBeenCalledWith(ativoAtualizado);
+    expect(prisma.aTIVOS.update).toHaveBeenCalledWith({
+      where: { id: 1n }, data: { status: 'MANUTENCAO' }, include: { local: true },
+    });
+    expect(prisma.hISTORICO_ATIVOS.create).toHaveBeenCalledWith({
+      data: { id_ativo: 1n, id_usuario: 2n, comentario: 'Status alterado de ATIVO para MANUTENCAO.' },
+    });
   });
 
-  test('deve retornar 404 se ativo não existir', async () => {
-    prisma.aTIVOS.update.mockRejectedValue(new Error('not found'));
-    const req = { params: { id: '999' }, body: { nome: 'X' } };
+  test('rejeita atualizações de campos além de status e localização', async () => {
     const res = mockRes();
+    await atualizar({ params: { id: '1' }, body: { nome: 'Outro nome' } }, res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ erro: 'Somente status e localização podem ser alterados.' });
+    expect(prisma.aTIVOS.update).not.toHaveBeenCalled();
+  });
 
-    await atualizar(req, res);
-
+  test('retorna 404 se o ativo não existir', async () => {
+    prisma.aTIVOS.findUnique.mockResolvedValue(null);
+    const res = mockRes();
+    await atualizar({ params: { id: '999' }, usuario: { id: 2n }, body: { status: 'INATIVO' } }, res);
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith({ erro: 'Ativo não encontrado.' });
+  });
+
+  test('não cria evento para alterações sem mudança efetiva', async () => {
+    const res = mockRes();
+    await atualizar({ params: { id: '1' }, usuario: { id: 2n }, body: { status: 'ATIVO', id_local: '1' } }, res);
+    expect(prisma.aTIVOS.update).not.toHaveBeenCalled();
+    expect(prisma.hISTORICO_ATIVOS.create).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ status: 'ATIVO' }));
+  });
+
+  test('rejeita status inválido', async () => {
+    const res = mockRes();
+    await atualizar({ params: { id: '1' }, usuario: { id: 2n }, body: { status: 'QUEBRADO' } }, res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(prisma.aTIVOS.update).not.toHaveBeenCalled();
+  });
+
+  test('retorna erro interno se a gravação do histórico falhar e reverte a alteração', async () => {
+    prisma.hISTORICO_ATIVOS.create.mockRejectedValue(new Error('DB error'));
+    const res = mockRes();
+    await atualizar({ params: { id: '1' }, usuario: { id: 2n }, body: { status: 'INATIVO' } }, res);
+    expect(prisma.$transaction).toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ erro: 'Erro ao atualizar ativo.' });
+  });
+});
+
+describe('ativosController: histórico', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  test('retorna eventos em ordem decrescente com o nome do usuário', async () => {
+    const eventos = [{ id: 3n, comentario: 'Status alterado.', usuario: { nome: 'Técnico' } }];
+    prisma.hISTORICO_ATIVOS.findMany.mockResolvedValue(eventos);
+    const res = mockRes();
+    await historico({ params: { id: '1' } }, res);
+    expect(prisma.hISTORICO_ATIVOS.findMany).toHaveBeenCalledWith({
+      where: { id_ativo: 1n },
+      include: { usuario: { select: { nome: true } } },
+      orderBy: { criado_em: 'desc' },
+    });
+    expect(res.json).toHaveBeenCalledWith(eventos);
+  });
+
+  test('retorna 404 ao solicitar histórico de ativo inexistente', async () => {
+    prisma.aTIVOS.findUnique.mockResolvedValue(null);
+    const res = mockRes();
+    await historico({ params: { id: '999' } }, res);
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(prisma.hISTORICO_ATIVOS.findMany).not.toHaveBeenCalled();
   });
 });
 
@@ -137,18 +202,6 @@ describe('patrimônio separado do nome', () => {
     await criar({ body: { nome: 'Notebook Dell', patrimonio: ' 001234 ', tipo: 'NOTEBOOK', id_local: '1' } }, res);
     expect(res.status).toHaveBeenCalledWith(201);
     expect(prisma.aTIVOS.create).toHaveBeenCalledWith({ data: expect.objectContaining({ nome: 'Notebook Dell', patrimonio: '001234' }) });
-  });
-
-  test('permite limpar o patrimônio sem alterar o nome', async () => {
-    prisma.aTIVOS.update.mockResolvedValue({ id: 1n });
-    await atualizar({ params: { id: '1' }, body: { patrimonio: '' } }, mockRes());
-    expect(prisma.aTIVOS.update).toHaveBeenCalledWith({ where: { id: 1n }, data: { patrimonio: null } });
-  });
-
-  test('edição antiga não apaga patrimônio quando o campo não é enviado', async () => {
-    prisma.aTIVOS.update.mockResolvedValue({ id: 1n });
-    await atualizar({ params: { id: '1' }, body: { nome: 'Monitor' } }, mockRes());
-    expect(prisma.aTIVOS.update).toHaveBeenCalledWith({ where: { id: 1n }, data: { nome: 'Monitor' } });
   });
 
   test('rejeita patrimônio numérico para evitar perda de zeros', async () => {
@@ -186,15 +239,30 @@ describe('locais cadastrados no banco', () => {
   test('não permite trocar para local inativo', async () => {
     prisma.lOCAIS.findUnique.mockResolvedValue({ id: 2n, status: 'INATIVO' });
     const res = mockRes();
-    await atualizar({ params: { id: '1' }, body: { id_local: '2' } }, res);
+    await atualizar({ params: { id: '1' }, usuario: { id: 2n }, body: { id_local: '2' } }, res);
     expect(res.status).toHaveBeenCalledWith(400);
     expect(prisma.aTIVOS.update).not.toHaveBeenCalled();
   });
-  test('permite manter o local atual após inativação', async () => {
-    prisma.aTIVOS.update.mockResolvedValue({ id: 1n });
+  test('atualiza para local ativo e registra a mudança no histórico', async () => {
+    prisma.lOCAIS.findUnique.mockResolvedValue({ id: 2n, nome: 'Laboratório', status: 'ATIVO' });
+    prisma.aTIVOS.update.mockResolvedValue({ id: 1n, id_local: 2n, local: { id: 2n, nome: 'Laboratório' } });
     const res = mockRes();
-    await atualizar({ params: { id: '1' }, body: { nome: 'PC atualizado', id_local: '1' } }, res);
-    expect(prisma.aTIVOS.update).toHaveBeenCalledWith({ where: { id: 1n }, data: { nome: 'PC atualizado', id_local: 1n } });
+    await atualizar({ params: { id: '1' }, usuario: { id: 2n }, body: { id_local: '2' } }, res);
+    expect(prisma.aTIVOS.update).toHaveBeenCalledWith({
+      where: { id: 1n }, data: { id_local: 2n }, include: { local: true },
+    });
+    expect(prisma.hISTORICO_ATIVOS.create).toHaveBeenCalledWith({
+      data: { id_ativo: 1n, id_usuario: 2n, comentario: 'Localização alterada de Secretaria para Laboratório.' },
+    });
+  });
+  test('mantém o local atual após sua inativação sem gerar evento', async () => {
+    prisma.aTIVOS.findUnique.mockResolvedValue({
+      id: 1n, id_local: 1n, status: 'ATIVO', local: { id: 1n, nome: 'Secretaria', status: 'INATIVO' },
+    });
+    const res = mockRes();
+    await atualizar({ params: { id: '1' }, usuario: { id: 2n }, body: { id_local: '1' } }, res);
+    expect(prisma.aTIVOS.update).not.toHaveBeenCalled();
+    expect(prisma.hISTORICO_ATIVOS.create).not.toHaveBeenCalled();
     expect(prisma.lOCAIS.findUnique).not.toHaveBeenCalled();
   });
   test('listagem inclui o local vinculado para refletir renomeações', async () => {

@@ -23,6 +23,7 @@ model USUARIOS {
   chamados_abertos    CHAMADOS[]           @relation("solicitante")
   chamados_atribuidos CHAMADOS[]           @relation("tecnico")
   historicos          HISTORICO_CHAMADOS[]
+  historicos_ativos   HISTORICO_ATIVOS[]
   documentacoes       DOCUMENTACOES[]
 }
 
@@ -49,6 +50,7 @@ model ATIVOS {
 
   chamados      CHAMADOS[]
   documentacoes DOCUMENTACOES[]
+  historico     HISTORICO_ATIVOS[]
 }
 
 model CHAMADOS {
@@ -95,6 +97,19 @@ model HISTORICO_CHAMADOS {
 
   id_usuario BigInt
   usuario    USUARIOS @relation(fields: [id_usuario], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model HISTORICO_ATIVOS {
+  id         BigInt   @id @default(autoincrement())
+  comentario String   @db.Text
+  criado_em  DateTime @default(now()) @db.Timestamptz(6)
+
+  id_ativo   BigInt
+  ativo      ATIVOS   @relation(fields: [id_ativo], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id_usuario BigInt
+  usuario    USUARIOS @relation(fields: [id_usuario], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([id_ativo, criado_em], map: "HISTORICO_ATIVOS_ativo_criado_idx")
 }
 
 model DOCUMENTACOES {

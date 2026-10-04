@@ -20,6 +20,7 @@ Os scripts SQL são atualizações incrementais para instalações existentes. C
 |---|---|
 | `backend/sql/sla_documentacoes.sql` | Campos e pausas de SLA, vínculos entre chamados e documentações, migração dos vínculos existentes. |
 | `backend/sql/ativos_confirmacao.sql` | Patrimônio dos ativos e confirmação de encerramento pelo solicitante. |
+| `backend/sql/ativos_historico.sql` | Histórico de alterações de status e localização dos ativos. |
 | `backend/sql/locais.sql` | Tabela de locais, locais iniciais e vínculo dos ativos por `id_local`; preserva localizações antigas como inativas para revisão. |
 
 Depois de aplicar os scripts necessários, gere o cliente Prisma:
@@ -111,6 +112,7 @@ IT_Management/
 │   ├── prisma/schema.prisma
 │   ├── sql/
 │   │   ├── ativos_confirmacao.sql
+│   │   ├── ativos_historico.sql
 │   │   ├── locais.sql
 │   │   └── sla_documentacoes.sql
 │   ├── src/

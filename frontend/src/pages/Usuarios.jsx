@@ -80,7 +80,7 @@ export default function Usuarios() {
                   </td>
                   <td>
                     <div className="actions-bar">
-                      <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/usuarios/${u.id}`)}>
+                      <button className="btn btn-secondary btn-sm" onClick={() => navigate('/usuarios/edicao', { state: { usuarioId: String(u.id) } })}>
                         Editar
                       </button>
                       {u.status === 'ATIVO' && (
