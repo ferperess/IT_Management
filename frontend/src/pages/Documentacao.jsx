@@ -167,7 +167,7 @@ export default function Documentacao() {
               <form onSubmit={handleSubmit} style={{ marginTop: 15 }}>
                 <div className="form-group">
                   <label htmlFor="documentacao-campo-1">Título do Documento</label>
-                  <input ref={formTitulo} id="documentacao-campo-1" className="form-control" placeholder="Manual de Configuração da Rede Wi-Fi" value={form.titulo} onChange={set('titulo')} required />
+                  <input ref={formTitulo} id="documentacao-campo-1" className="form-control" placeholder="Ex: Manual de Configuração da Rede Wi-Fi" value={form.titulo} onChange={set('titulo')} required />
                 </div>
                 <div className="form-group">
                   <label htmlFor="documentacao-campo-2">Descrição</label>
