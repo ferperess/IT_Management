@@ -14,15 +14,25 @@ app.set('json replacer', jsonReplacer);
 // Configuração de Segurança com Helmet
 app.use(helmet());
 
-// Limitação de Taxa (Rate Limiting)
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100, // Limita cada IP a 100 requisições por janela
+// Limitação geral e proteção específica contra tentativas automatizadas de login.
+const rateLimitWindowMs = 15 * 60 * 1000;
+const apiLimiter = rateLimit({
+  windowMs: rateLimitWindowMs,
+  max: 300,
   standardHeaders: true,
   legacyHeaders: false,
   message: { erro: 'Muitas requisições vindas deste IP, tente novamente mais tarde.' }
 });
-app.use('/api/', limiter);
+const loginLimiter = rateLimit({
+  windowMs: rateLimitWindowMs,
+  max: 10,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { erro: 'Muitas tentativas de login. Tente novamente em 15 minutos.' }
+});
+app.use('/api/', apiLimiter);
+app.use('/api/auth/login', loginLimiter);
 
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
