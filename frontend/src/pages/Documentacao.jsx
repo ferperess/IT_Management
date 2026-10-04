@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -38,7 +39,13 @@ export default function Documentacao() {
   const [sucesso, setSucesso] = useState('');
   const [baixando, setBaixando] = useState(null);
   const formTitulo = useRef(null);
+  const arquivoInput = useRef(null);
   const formBotao = useRef(null);
+  const formularioAbertoAnteriormente = useRef(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const cadastroDocumento = location.pathname === '/documentacao/cadastro';
+  const edicaoDocumento = location.pathname === '/documentacao/edicao';
 
   usePageTitle('Documentação');
 
@@ -55,20 +62,57 @@ export default function Documentacao() {
   }
 
   useEffect(() => { carregar(); }, []);
-  useEffect(() => { if (mostrarForm) formTitulo.current?.focus(); }, [mostrarForm]);
+  useEffect(() => {
+    if (cadastroDocumento) {
+      if (!podeEditar) {
+        navigate('/documentacao', { replace: true });
+        return;
+      }
+      setEditandoId(null);
+      setForm(formVazio);
+      setArquivo(null);
+      if (arquivoInput.current) arquivoInput.current.value = '';
+      setMostrarForm(true);
+      setErro(''); setSucesso('');
+    } else if (edicaoDocumento) {
+      if (!podeEditar) {
+        navigate('/documentacao', { replace: true });
+        return;
+      }
+      if (carregandoLista) return;
+      const documento = docs.find(d => String(d.id) === String(location.state?.documentoId));
+      if (!documento) {
+        navigate('/documentacao', { replace: true });
+        return;
+      }
+      if (String(editandoId) !== String(documento.id)) prepararEdicao(documento);
+    } else {
+      setMostrarForm(false);
+      setEditandoId(null);
+    }
+  }, [cadastroDocumento, edicaoDocumento, podeEditar, navigate, carregandoLista, docs, editandoId, location.state]);
+  useEffect(() => {
+    if (mostrarForm) formTitulo.current?.focus();
+    else if (formularioAbertoAnteriormente.current) formBotao.current?.focus();
+    formularioAbertoAnteriormente.current = mostrarForm;
+  }, [mostrarForm]);
 
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
   const mudarFiltro = campo => e => setFiltros(f => ({ ...f, [campo]: e.target.value }));
 
   function novoForm() {
-    setEditandoId(null);
-    setForm(formVazio);
-    setArquivo(null);
-    setMostrarForm(true);
-    setErro(''); setSucesso('');
+    navigate('/documentacao/cadastro');
   }
 
-  function iniciarEdicao(d) {
+  function fecharForm() {
+    setMostrarForm(false);
+    setArquivo(null);
+    if (arquivoInput.current) arquivoInput.current.value = '';
+    setEditandoId(null);
+    if (cadastroDocumento || edicaoDocumento) navigate('/documentacao', { replace: true });
+  }
+
+  function prepararEdicao(d) {
     setEditandoId(d.id);
     setForm({
       titulo: d.titulo,
@@ -77,8 +121,13 @@ export default function Documentacao() {
       id_ativo: d.id_ativo || '',
     });
     setArquivo(null);
+    if (arquivoInput.current) arquivoInput.current.value = '';
     setMostrarForm(true);
     setErro(''); setSucesso('');
+  }
+
+  function iniciarEdicao(d) {
+    navigate('/documentacao/edicao', { state: { documentoId: String(d.id) } });
   }
 
   async function handleSubmit(e) {
@@ -91,7 +140,7 @@ export default function Documentacao() {
       fd.append('titulo', form.titulo);
       fd.append('descricao', form.descricao);
       fd.append('link_externo', form.link_externo);
-      fd.append('id_ativo', form.id_ativo);
+      if (!editandoId) fd.append('id_ativo', form.id_ativo);
       if (arquivo) fd.append('arquivo', arquivo);
 
       if (editandoId) {
@@ -102,6 +151,8 @@ export default function Documentacao() {
         setSucesso('Documento cadastrado!');
       }
       setForm(formVazio); setArquivo(null); setEditandoId(null); setMostrarForm(false);
+      if (arquivoInput.current) arquivoInput.current.value = '';
+      if (cadastroDocumento || edicaoDocumento) navigate('/documentacao', { replace: true });
       carregar();
     } catch (err) {
       setErro(err.response?.data?.erro || 'Erro ao salvar documento.');
@@ -142,6 +193,7 @@ export default function Documentacao() {
   }
 
   const linkExternoSeguro = lendoDoc ? validarLinkExterno(lendoDoc.link_externo) : '';
+  const ativoDocumentoEditado = docs.find(doc => String(doc.id) === String(editandoId))?.ativo;
   const periodoInvalido = filtros.inicio && filtros.fim && filtros.inicio > filtros.fim;
   const docsFiltrados = docs.filter(doc => {
     const registro = new Date(doc.criado_em);
@@ -167,21 +219,28 @@ export default function Documentacao() {
               <form onSubmit={handleSubmit} style={{ marginTop: 15 }}>
                 <div className="form-group">
                   <label htmlFor="documentacao-campo-1">Título do Documento</label>
-                  <input ref={formTitulo} id="documentacao-campo-1" className="form-control" placeholder="Manual de Configuração da Rede Wi-Fi" value={form.titulo} onChange={set('titulo')} required />
+                  <input ref={formTitulo} id="documentacao-campo-1" className="form-control" placeholder="Ex: Manual de Configuração da Rede Wi-Fi" value={form.titulo} onChange={set('titulo')} required />
                 </div>
                 <div className="form-group">
                   <label htmlFor="documentacao-campo-2">Descrição</label>
-                  <textarea id="documentacao-campo-2" className="form-control" rows={3} value={form.descricao} onChange={set('descricao')} required />
+                  <textarea id="documentacao-campo-2" className="form-control" placeholder="Ex: Documento técnico de referência com instruções e parâmetros da rede" rows={3} value={form.descricao} onChange={set('descricao')} required />
                 </div>
-                <div className="form-group">
-                  <label htmlFor="documentacao-campo-3">Ativo Relacionado (Opcional)</label>
-                  <select id="documentacao-campo-3" className="form-control" value={form.id_ativo} onChange={set('id_ativo')}>
-                    <option value="">— Nenhum —</option>
-                    {ativos.map(a => (
-                      <option key={a.id} value={a.id}>{a.nome} ({a.tipo})</option>
-                    ))}
-                  </select>
-                </div>
+                {editandoId ? (
+                  <div className="form-group">
+                    <label>Ativo Relacionado</label>
+                    <p className="form-control" aria-readonly="true">{ativoDocumentoEditado?.nome || '— Nenhum —'}</p>
+                  </div>
+                ) : (
+                  <div className="form-group">
+                    <label htmlFor="documentacao-campo-3">Ativo Relacionado (Opcional)</label>
+                    <select id="documentacao-campo-3" className="form-control" value={form.id_ativo} onChange={set('id_ativo')}>
+                      <option value="">— Nenhum —</option>
+                      {ativos.map(a => (
+                        <option key={a.id} value={a.id}>{a.nome} ({a.tipo})</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="documentacao-campo-5">Link Externo (Opcional)</label>
@@ -189,24 +248,24 @@ export default function Documentacao() {
                   </div>
                   <div className="form-group">
                     <label htmlFor="documentacao-campo-6">Arquivo (PDF, DOC, DOCX, JPG ou PNG)</label>
-                    <input id="documentacao-campo-6" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="form-control" style={{ padding: 7 }} onChange={e => setArquivo(e.target.files[0])} required={!editandoId} />
+                    <input ref={arquivoInput} id="documentacao-campo-6" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="form-control" style={{ padding: 7 }} onChange={e => setArquivo(e.target.files[0] || null)} required={!editandoId} />
                     {editandoId && <small style={{ color: '#999' }}>Deixe em branco para manter o arquivo atual.</small>}
                   </div>
                 </div>
                 <div className="form-actions">
-                  <button type="button" className="btn btn-secondary" onClick={() => { setMostrarForm(false); formBotao.current?.focus(); }}>Recolher e manter rascunho</button>
+                  <button type="button" className="btn btn-secondary" onClick={fecharForm}>Cancelar</button>
                   <button type="submit" className="btn btn-primary" disabled={salvando}>{salvando ? 'Salvando…' : 'Salvar Documento'}</button>
                 </div>
               </form>
             </section>
           </div>
         )}
-        <div className="card-box">
+        <div className="card-box" hidden={mostrarForm}>
           <div className="page-header">
             <h2>Base de Conhecimento / Documentação</h2>
             <div className="document-list-actions">
               {podeEditar && (
-                <button ref={formBotao} className="btn btn-primary" aria-expanded={mostrarForm} aria-controls="documentacao-formulario" onClick={() => mostrarForm ? setMostrarForm(false) : novoForm()}>
+                <button ref={formBotao} className="btn btn-primary" aria-expanded={mostrarForm} aria-controls="documentacao-formulario" onClick={() => mostrarForm ? fecharForm() : novoForm()}>
                   {mostrarForm ? 'Recolher formulário' : '+ Novo Documento'}
                 </button>
               )}

@@ -20,11 +20,17 @@ export default function App() {
         <Route path="/" element={<Login />} />
         <Route path="/dashboard" element={<RotaProtegida><Dashboard /></RotaProtegida>} />
         <Route path="/usuarios" element={<RotaProtegida><Usuarios /></RotaProtegida>} />
-        <Route path="/usuarios/novo" element={<RotaProtegida><CadastroUsuario /></RotaProtegida>} />
+        <Route path="/usuarios/cadastro" element={<RotaProtegida><CadastroUsuario /></RotaProtegida>} />
+        <Route path="/usuarios/edicao" element={<RotaProtegida><CadastroUsuario /></RotaProtegida>} />
+        <Route path="/usuarios/novo" element={<Navigate to="/usuarios/cadastro" replace />} />
         <Route path="/usuarios/:id" element={<RotaProtegida><CadastroUsuario /></RotaProtegida>} />
         <Route path="/ativos" element={<RotaProtegida><Ativos /></RotaProtegida>} />
+        <Route path="/ativos/cadastro" element={<RotaProtegida><Ativos /></RotaProtegida>} />
+        <Route path="/ativos/edicao" element={<RotaProtegida><Ativos /></RotaProtegida>} />
         <Route path="/chamados" element={<RotaProtegida><Chamados /></RotaProtegida>} />
         <Route path="/documentacao" element={<RotaProtegida><Documentacao /></RotaProtegida>} />
+        <Route path="/documentacao/cadastro" element={<RotaProtegida><Documentacao /></RotaProtegida>} />
+        <Route path="/documentacao/edicao" element={<RotaProtegida><Documentacao /></RotaProtegida>} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </AuthProvider>

@@ -288,8 +288,9 @@ hr.divider { margin: 15px 0; border: 0; border-top: 1px solid var(--cps-borda); 
 .badge-andamento { background: #eaf4fb; color: #2471a3; border: 1px solid #2471a3; }
 .badge-concluido { background: #eafaf1; color: #1e8449; border: 1px solid #27ae60; }
 .badge-cancelado { background: #fdecea; color: #c0392b; border: 1px solid #e74c3c; }
+.badge-user-status { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 76px; line-height: 1; }
 .badge-ativo { background: #eafaf1; color: #1e8449; border: 1px solid #27ae60; }
-.badge-inativo { background: #f2f3f4; color: #7f8c8d; border: 1px solid #bdc3c7; }
+.badge-inativo { background: #e2e8f0; color: #334155; border: 1px solid #556883; }
 .badge-manutencao { background: #fef5e7; color: #d35400; border: 1px solid #e67e22; }
 
 /* Badges prioridade */
@@ -398,6 +399,17 @@ div[style*="background: #f9f9f9"] {
 .chamados-page .ch-history > [role="listitem"] { padding: 0 0 20px; font-size: 14px; overflow-wrap: anywhere; }
 .chamados-page .ch-history p { white-space: pre-wrap; }
 .chamados-page .ch-history span { display: block; font-size: 12px; color: #526071; margin-top: 5px; }
+.ativos-form .ativos-dados-fixos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+.ativos-form .ativos-dados-fixos > div { display: grid; gap: 4px; min-width: 0; }
+.ativos-form .ativos-dados-fixos strong { font-size: 13px; color: #526071; }
+.ativos-form .ativos-dados-fixos span { overflow-wrap: anywhere; }
+.ativos-form .ativos-historico { margin-top: 26px; padding-top: 20px; border-top: 1px solid #d3dbe6; }
+.ativos-form .ativos-historico h3 { margin: 0 0 14px; font-size: 18px; color: #344154; }
+.ativos-form .ativos-historico > p { color: #526071; }
+.ativos-form .ch-history { margin-top: 14px; padding-left: 14px; border-left: 2px solid #d3dbe6; }
+.ativos-form .ch-history > [role="listitem"] { padding: 0 0 20px; font-size: 14px; overflow-wrap: anywhere; }
+.ativos-form .ch-history p { white-space: pre-wrap; margin: 0; }
+.ativos-form .ch-history span { display: block; font-size: 12px; color: #526071; margin-top: 5px; }
 @media (max-width: 1150px) { .chamados-page .ch-board { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 760px) {
   .chamados-page { padding: 20px 14px; }
@@ -407,6 +419,7 @@ div[style*="background: #f9f9f9"] {
 }
 @media (max-width: 480px) {
   .chamados-page .ch-board, .chamados-page .ch-filters, .chamados-page .ch-extra, .chamados-page .ch-form-grid { grid-template-columns: 1fr; }
+  .ativos-form .ativos-dados-fixos { grid-template-columns: 1fr; }
   .chamados-page .ch-actions { align-items: stretch; flex-direction: column; }
   .chamados-page .ch-detail-meta { grid-template-columns: 1fr; gap: 2px; }
   .chamados-page .ch-detail-meta dd { margin-bottom: 10px; }
@@ -627,6 +640,10 @@ button:disabled { cursor: not-allowed; opacity: .65; }
 }
 .document-download-button:hover:not(:disabled) { background: #e9edf3; }
 .ativos-form {
+  border-top: 4px solid var(--cps-vermelho);
+}
+.documentation-form-card,
+.cadastro-usuario-form {
   border-top: 4px solid var(--cps-vermelho);
 }
 .ativos-form .form-control,

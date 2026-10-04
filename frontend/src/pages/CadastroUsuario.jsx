@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import api from '../services/api';
 import usePageTitle from '../hooks/usePageTitle';
 
 export default function CadastroUsuario() {
   const { id } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
-  const isEdicao = Boolean(id);
+  const idUsuario = id || location.state?.usuarioId;
+  const isEdicao = location.pathname === '/usuarios/edicao' || Boolean(id);
 
   const [form, setForm] = useState({
     nome: '', email: '', username: '', senha: '', perfil: 'COMUM', status: 'ATIVO',
@@ -20,12 +22,16 @@ export default function CadastroUsuario() {
 
   useEffect(() => {
     if (isEdicao) {
-      api.get(`/usuarios/${id}`).then(r => {
+      if (!idUsuario) {
+        navigate('/usuarios', { replace: true });
+        return;
+      }
+      api.get(`/usuarios/${idUsuario}`).then(r => {
         const u = r.data;
         setForm({ nome: u.nome, email: u.email, username: u.username, senha: '', perfil: u.perfil, status: u.status });
       }).catch(() => navigate('/usuarios'));
     }
-  }, [id]);
+  }, [idUsuario, isEdicao, navigate]);
 
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
 
@@ -36,7 +42,7 @@ export default function CadastroUsuario() {
       const payload = { ...form };
       if (isEdicao && !payload.senha) delete payload.senha;
       if (isEdicao) {
-        await api.put(`/usuarios/${id}`, payload);
+        await api.put(`/usuarios/${idUsuario}`, payload);
         setSucesso('Usuário atualizado com sucesso!');
       } else {
         await api.post('/usuarios', payload);

@@ -55,7 +55,10 @@ function dadosDocumento(req, novo) {
   // React escapa textos na apresentação; preservar o conteúdo sem HTML pré-escapado.
   if ((novo || data.titulo !== undefined) && !data.titulo) throw falha(400, 'Título obrigatório.');
   if (data.link_externo && !validator.isURL(data.link_externo, { protocols: ['http', 'https'], require_protocol: true })) throw falha(400, 'URL externa inválida.');
-  if (req.body.id_ativo !== undefined) data.id_ativo = req.body.id_ativo ? toId(req.body.id_ativo) : null;
+  if (req.body.id_ativo !== undefined) {
+    if (!novo) throw falha(400, 'O ativo relacionado não pode ser alterado durante a edição.');
+    data.id_ativo = req.body.id_ativo ? toId(req.body.id_ativo) : null;
+  }
   if (req.body.id_chamado !== undefined || req.body.ids_chamados !== undefined) throw falha(400, 'Vincule documentações pela tela do chamado.');
   if (req.file) {
     const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];

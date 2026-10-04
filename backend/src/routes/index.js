@@ -22,6 +22,7 @@ router.put('/usuarios/:id', autenticar, apenasAdmin, usuariosCtrl.atualizar);
 router.patch('/usuarios/:id/inativar', autenticar, apenasAdmin, usuariosCtrl.inativar);
 
 router.get('/ativos', autenticar, ativosCtrl.listar);
+router.get('/ativos/:id/historico', autenticar, ativosCtrl.historico);
 router.get('/locais', autenticar, locaisCtrl.listar);
 router.post('/ativos', autenticar, apenasAdminOuTecnico, ativosCtrl.criar);
 router.put('/ativos/:id', autenticar, apenasAdminOuTecnico, ativosCtrl.atualizar);

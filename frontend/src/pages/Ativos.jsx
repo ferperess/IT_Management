@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -37,6 +38,13 @@ export default function Ativos() {
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
   const [mostrarForm, setMostrarForm] = useState(false);
+  const [historico, setHistorico] = useState([]);
+  const [carregandoHistorico, setCarregandoHistorico] = useState(false);
+  const [erroHistorico, setErroHistorico] = useState('');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const cadastroAtivo = location.pathname === '/ativos/cadastro';
+  const edicaoAtivo = location.pathname === '/ativos/edicao';
 
   usePageTitle('Ativos');
 
@@ -51,6 +59,34 @@ export default function Ativos() {
   }
 
   useEffect(() => { carregar(); }, []);
+  useEffect(() => {
+    if (cadastroAtivo) {
+      if (!podeEditar) {
+        navigate('/ativos', { replace: true });
+        return;
+      }
+      setEditandoId(null);
+      setForm(formVazio);
+      setMostrarForm(true);
+      setErro(''); setSucesso('');
+      carregarLocais();
+    } else if (edicaoAtivo) {
+      if (!podeEditar) {
+        navigate('/ativos', { replace: true });
+        return;
+      }
+      if (carregandoLista) return;
+      const ativo = ativos.find(a => String(a.id) === String(location.state?.ativoId));
+      if (!ativo) {
+        navigate('/ativos', { replace: true });
+        return;
+      }
+      if (String(editandoId) !== String(ativo.id)) prepararEdicao(ativo);
+    } else {
+      setMostrarForm(false);
+      setEditandoId(null);
+    }
+  }, [cadastroAtivo, edicaoAtivo, podeEditar, navigate, carregandoLista, ativos, editandoId, location.state]);
 
   async function carregarLocais() {
     setCarregandoLocais(true); setErroLocais('');
@@ -65,7 +101,17 @@ export default function Ativos() {
 
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
 
-  function iniciarEdicao(a) {
+  function carregarHistorico(id) {
+    setHistorico([]);
+    setCarregandoHistorico(true);
+    setErroHistorico('');
+    api.get(`/ativos/${id}/historico`)
+      .then(({ data }) => setHistorico(data))
+      .catch(() => setErroHistorico('Não foi possível carregar o histórico deste ativo.'))
+      .finally(() => setCarregandoHistorico(false));
+  }
+
+  function prepararEdicao(a) {
     setEditandoId(a.id);
     setForm({
       nome: a.nome, patrimonio: a.patrimonio || '', tipo: tipoLegado[a.tipo] || a.tipo, id_local: a.id_local ? String(a.id_local) : '',
@@ -75,14 +121,22 @@ export default function Ativos() {
     setMostrarForm(true);
     carregarLocais();
     setErro(''); setSucesso('');
+    carregarHistorico(a.id);
+  }
+
+  function iniciarEdicao(a) {
+    navigate('/ativos/edicao', { state: { ativoId: String(a.id) } });
   }
 
   function novoForm() {
-    carregarLocais();
+    navigate('/ativos/cadastro');
+  }
+
+  function fecharForm() {
+    setMostrarForm(false);
+    setHistorico([]);
     setEditandoId(null);
-    setForm(formVazio);
-    setMostrarForm(true);
-    setErro(''); setSucesso('');
+    if (cadastroAtivo || edicaoAtivo) navigate('/ativos', { replace: true });
   }
 
   async function handleSubmit(e) {
@@ -90,7 +144,15 @@ export default function Ativos() {
     setErro(''); setSucesso('');
     try {
       if (editandoId) {
-        await api.put(`/ativos/${editandoId}`, form);
+        const payload = {};
+        const statusAtual = ativoEditado.status === 'EM_MANUTENCAO' ? 'MANUTENCAO' : ativoEditado.status;
+        if (form.status !== statusAtual) payload.status = form.status;
+        if (String(form.id_local) !== String(ativoEditado.id_local || '')) payload.id_local = form.id_local;
+        if (!Object.keys(payload).length) {
+          setSucesso('Nenhuma alteração para salvar.');
+          return;
+        }
+        await api.put(`/ativos/${editandoId}`, payload);
         setSucesso('Ativo atualizado com sucesso!');
       } else {
         await api.post('/ativos', form);
@@ -99,6 +161,8 @@ export default function Ativos() {
       setForm(formVazio);
       setEditandoId(null);
       setMostrarForm(false);
+      setHistorico([]);
+      if (cadastroAtivo || edicaoAtivo) navigate('/ativos', { replace: true });
       carregar();
     } catch (err) {
       setErro(err.response?.data?.erro || 'Erro ao salvar ativo.');
@@ -119,7 +183,7 @@ export default function Ativos() {
     <>
       <Navbar />
       <main>
-        <div className="card-box">
+        <div className="card-box" hidden={mostrarForm}>
           <div className="page-header">
             <h2>Gestão de Ativos</h2>
             {podeEditar && (
@@ -146,7 +210,7 @@ export default function Ativos() {
                       <div className="actions-bar">
                         <button className="btn btn-secondary btn-sm" onClick={() => iniciarEdicao(a)}>Editar</button>
                         {usuario?.perfil === 'ADMIN' && (
-                          <button className="btn btn-danger btn-sm" onClick={() => remover(a.id)}>Remover</button>
+                          <button className="btn btn-danger btn-sm" onClick={() => remover(a.id)}>Inativar</button>
                         )}
                       </div>
                     </td>
@@ -168,36 +232,45 @@ export default function Ativos() {
             {erro && <div className="alert alert-erro">{erro}</div>}
             {sucesso && <div className="alert alert-sucesso">{sucesso}</div>}
             <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label htmlFor="ativos-campo-1">Nome do Equipamento</label>
-                <input id="ativos-campo-1" className="form-control" placeholder="Ex: Desktop Dell OptiPlex" value={form.nome} onChange={set('nome')} required />
-              </div>
-              <div className="form-group">
-                <label htmlFor="ativos-patrimonio">Patrimônio</label>
-                <input id="ativos-patrimonio" className="form-control" placeholder="Ex: 001234" value={form.patrimonio} onChange={set('patrimonio')} required />
-              </div>
+              {editandoId ? (
+                <div className="ativos-dados-fixos" aria-label="Dados não editáveis do ativo">
+                  <div><strong>Equipamento</strong><span>{ativoEditado?.nome}</span></div>
+                  <div><strong>Patrimônio</strong><span>{ativoEditado?.patrimonio || '—'}</span></div>
+                  <div><strong>Tipo</strong><span>{tipoLabel[ativoEditado?.tipo] || ativoEditado?.tipo}</span></div>
+                  <div><strong>Data de aquisição</strong><span>{ativoEditado?.data_aquisicao ? new Date(ativoEditado.data_aquisicao).toLocaleDateString('pt-BR') : '—'}</span></div>
+                </div>
+              ) : (
+                <>
+                  <div className="form-group">
+                    <label htmlFor="ativos-campo-1">Nome do Equipamento</label>
+                    <input id="ativos-campo-1" className="form-control" placeholder="Ex: Desktop Dell OptiPlex" value={form.nome} onChange={set('nome')} required />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="ativos-patrimonio">Patrimônio</label>
+                    <input id="ativos-patrimonio" className="form-control" placeholder="Ex: 001234" value={form.patrimonio} onChange={set('patrimonio')} required />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="ativos-campo-2">Tipo</label>
+                    <select id="ativos-campo-2" className="form-control" value={form.tipo} onChange={set('tipo')} required>
+                      {tiposOpts.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="ativos-campo-4">Data de Aquisição</label>
+                    <input id="ativos-campo-4" type="date" className="form-control" value={form.data_aquisicao} onChange={set('data_aquisicao')} required />
+                  </div>
+                </>
+              )}
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="ativos-campo-2">Tipo</label>
-                  <select id="ativos-campo-2" className="form-control" value={form.tipo} onChange={set('tipo')} required>
-                    {tiposOpts.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                  </select>
-                </div>
-                <div className="form-group">
                   <label htmlFor="ativos-campo-3">Localização</label>
-                  <select id="ativos-campo-3" className="form-control" value={form.id_local} onChange={set('id_local')} required disabled={carregandoLocais || !!erroLocais}>
+                  <select id="ativos-campo-3" className="form-control" value={form.id_local} onChange={set('id_local')} required disabled={carregandoLocais || (!!erroLocais && !editandoId)}>
                     <option value="">{carregandoLocais ? 'Carregando localizações…' : 'Selecione a localização'}</option>
                     {localAnterior && !locais.some(l => String(l.id) === String(localAnterior.id)) && <option value={String(localAnterior.id)}>{localAnterior.nome} (local atual)</option>}
                     {locais.map(local => <option key={local.id} value={String(local.id)}>{local.nome}</option>)}
                   </select>
                   {erroLocais && <p role="alert">{erroLocais} <button type="button" className="btn btn-secondary btn-sm" onClick={carregarLocais}>Tentar novamente</button></p>}
                   {!carregandoLocais && !erroLocais && locais.length === 0 && <p role="status">Nenhum local ativo cadastrado. Solicite o cadastro ao responsável.</p>}
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="ativos-campo-4">Data de Aquisição</label>
-                  <input id="ativos-campo-4" type="date" className="form-control" value={form.data_aquisicao} onChange={set('data_aquisicao')} required />
                 </div>
                 <div className="form-group">
                   <label htmlFor="ativos-campo-5">Status</label>
@@ -207,10 +280,22 @@ export default function Ativos() {
                 </div>
               </div>
               <div className="form-actions">
-                <button type="button" className="btn btn-secondary" onClick={() => setMostrarForm(false)}>Cancelar</button>
-                <button type="submit" className="btn btn-primary" disabled={carregandoLocais || !!erroLocais}>Salvar Ativo</button>
+                <button type="button" className="btn btn-secondary" onClick={fecharForm}>Cancelar</button>
+                <button type="submit" className="btn btn-primary" disabled={carregandoLocais || (!!erroLocais && !editandoId)}>Salvar Ativo</button>
               </div>
             </form>
+            {editandoId && (
+              <section className="ativos-historico" aria-labelledby="ativos-historico-titulo">
+                <h3 id="ativos-historico-titulo">Histórico do ativo</h3>
+                {carregandoHistorico ? <p role="status">Carregando histórico…</p> : erroHistorico ? (
+                  <p role="alert">{erroHistorico} <button type="button" className="btn btn-secondary btn-sm" onClick={() => carregarHistorico(editandoId)}>Tentar novamente</button></p>
+                ) : historico.length ? (
+                  <div className="ch-history" role="list">
+                    {historico.map(evento => <div key={evento.id} role="listitem"><p>{evento.comentario}</p><span>{evento.usuario?.nome || 'Sistema'} · {new Date(evento.criado_em).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</span></div>)}
+                  </div>
+                ) : <p className="ch-muted">Não há histórico para este ativo.</p>}
+              </section>
+            )}
           </div>
         )}
       </main>

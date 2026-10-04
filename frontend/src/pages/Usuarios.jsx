@@ -44,7 +44,7 @@ export default function Usuarios() {
         <div className="card-box">
           <div className="page-header">
             <h2>Gestão de Usuários</h2>
-            <button className="btn btn-primary" onClick={() => navigate('/usuarios/novo')}>
+            <button className="btn btn-primary" onClick={() => navigate('/usuarios/cadastro')}>
               + Cadastrar Usuário
             </button>
           </div>
@@ -74,13 +74,13 @@ export default function Usuarios() {
                   <td>{u.email}</td>
                   <td>{perfilLabel[u.perfil] || u.perfil}</td>
                   <td>
-                    <span className={`badge badge-${u.status === 'ATIVO' ? 'ativo' : 'inativo'}`}>
+                    <span className={`badge badge-user-status badge-${u.status === 'ATIVO' ? 'ativo' : 'inativo'}`}>
                       {u.status}
                     </span>
                   </td>
                   <td>
                     <div className="actions-bar">
-                      <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/usuarios/${u.id}`)}>
+                      <button className="btn btn-secondary btn-sm" onClick={() => navigate('/usuarios/edicao', { state: { usuarioId: String(u.id) } })}>
                         Editar
                       </button>
                       {u.status === 'ATIVO' && (
