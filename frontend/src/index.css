@@ -629,6 +629,10 @@ button:disabled { cursor: not-allowed; opacity: .65; }
 .ativos-form {
   border-top: 4px solid var(--cps-vermelho);
 }
+.documentation-form-card,
+.cadastro-usuario-form {
+  border-top: 4px solid var(--cps-vermelho);
+}
 .ativos-form .form-control,
 .chamados-page .ch-create .form-control,
 .chamados-page .ch-management .form-control {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -37,6 +38,9 @@ export default function Ativos() {
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
   const [mostrarForm, setMostrarForm] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const cadastroAtivo = location.pathname === '/ativos/cadastro';
 
   usePageTitle('Ativos');
 
@@ -51,6 +55,21 @@ export default function Ativos() {
   }
 
   useEffect(() => { carregar(); }, []);
+  useEffect(() => {
+    if (cadastroAtivo) {
+      if (!podeEditar) {
+        navigate('/ativos', { replace: true });
+        return;
+      }
+      setEditandoId(null);
+      setForm(formVazio);
+      setMostrarForm(true);
+      setErro(''); setSucesso('');
+      carregarLocais();
+    } else {
+      setMostrarForm(false);
+    }
+  }, [cadastroAtivo, podeEditar, navigate]);
 
   async function carregarLocais() {
     setCarregandoLocais(true); setErroLocais('');
@@ -78,11 +97,12 @@ export default function Ativos() {
   }
 
   function novoForm() {
-    carregarLocais();
-    setEditandoId(null);
-    setForm(formVazio);
-    setMostrarForm(true);
-    setErro(''); setSucesso('');
+    navigate('/ativos/cadastro');
+  }
+
+  function fecharForm() {
+    setMostrarForm(false);
+    if (cadastroAtivo) navigate('/ativos', { replace: true });
   }
 
   async function handleSubmit(e) {
@@ -99,6 +119,7 @@ export default function Ativos() {
       setForm(formVazio);
       setEditandoId(null);
       setMostrarForm(false);
+      if (cadastroAtivo) navigate('/ativos', { replace: true });
       carregar();
     } catch (err) {
       setErro(err.response?.data?.erro || 'Erro ao salvar ativo.');
@@ -119,7 +140,7 @@ export default function Ativos() {
     <>
       <Navbar />
       <main>
-        <div className="card-box">
+        <div className="card-box" hidden={mostrarForm}>
           <div className="page-header">
             <h2>Gestão de Ativos</h2>
             {podeEditar && (
@@ -207,7 +228,7 @@ export default function Ativos() {
                 </div>
               </div>
               <div className="form-actions">
-                <button type="button" className="btn btn-secondary" onClick={() => setMostrarForm(false)}>Cancelar</button>
+                <button type="button" className="btn btn-secondary" onClick={fecharForm}>Cancelar</button>
                 <button type="submit" className="btn btn-primary" disabled={carregandoLocais || !!erroLocais}>Salvar Ativo</button>
               </div>
             </form>

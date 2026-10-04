@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -39,6 +40,10 @@ export default function Documentacao() {
   const [baixando, setBaixando] = useState(null);
   const formTitulo = useRef(null);
   const formBotao = useRef(null);
+  const formularioAbertoAnteriormente = useRef(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const cadastroDocumento = location.pathname === '/documentacao/cadastro';
 
   usePageTitle('Documentação');
 
@@ -55,17 +60,37 @@ export default function Documentacao() {
   }
 
   useEffect(() => { carregar(); }, []);
-  useEffect(() => { if (mostrarForm) formTitulo.current?.focus(); }, [mostrarForm]);
+  useEffect(() => {
+    if (cadastroDocumento) {
+      if (!podeEditar) {
+        navigate('/documentacao', { replace: true });
+        return;
+      }
+      setEditandoId(null);
+      setForm(formVazio);
+      setArquivo(null);
+      setMostrarForm(true);
+      setErro(''); setSucesso('');
+    } else {
+      setMostrarForm(false);
+    }
+  }, [cadastroDocumento, podeEditar, navigate]);
+  useEffect(() => {
+    if (mostrarForm) formTitulo.current?.focus();
+    else if (formularioAbertoAnteriormente.current) formBotao.current?.focus();
+    formularioAbertoAnteriormente.current = mostrarForm;
+  }, [mostrarForm]);
 
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
   const mudarFiltro = campo => e => setFiltros(f => ({ ...f, [campo]: e.target.value }));
 
   function novoForm() {
-    setEditandoId(null);
-    setForm(formVazio);
-    setArquivo(null);
-    setMostrarForm(true);
-    setErro(''); setSucesso('');
+    navigate('/documentacao/cadastro');
+  }
+
+  function fecharForm() {
+    setMostrarForm(false);
+    if (cadastroDocumento) navigate('/documentacao', { replace: true });
   }
 
   function iniciarEdicao(d) {
@@ -102,6 +127,7 @@ export default function Documentacao() {
         setSucesso('Documento cadastrado!');
       }
       setForm(formVazio); setArquivo(null); setEditandoId(null); setMostrarForm(false);
+      if (cadastroDocumento) navigate('/documentacao', { replace: true });
       carregar();
     } catch (err) {
       setErro(err.response?.data?.erro || 'Erro ao salvar documento.');
@@ -194,19 +220,19 @@ export default function Documentacao() {
                   </div>
                 </div>
                 <div className="form-actions">
-                  <button type="button" className="btn btn-secondary" onClick={() => { setMostrarForm(false); formBotao.current?.focus(); }}>Recolher e manter rascunho</button>
+                  <button type="button" className="btn btn-secondary" onClick={fecharForm}>Recolher e manter rascunho</button>
                   <button type="submit" className="btn btn-primary" disabled={salvando}>{salvando ? 'Salvando…' : 'Salvar Documento'}</button>
                 </div>
               </form>
             </section>
           </div>
         )}
-        <div className="card-box">
+        <div className="card-box" hidden={mostrarForm}>
           <div className="page-header">
             <h2>Base de Conhecimento / Documentação</h2>
             <div className="document-list-actions">
               {podeEditar && (
-                <button ref={formBotao} className="btn btn-primary" aria-expanded={mostrarForm} aria-controls="documentacao-formulario" onClick={() => mostrarForm ? setMostrarForm(false) : novoForm()}>
+                <button ref={formBotao} className="btn btn-primary" aria-expanded={mostrarForm} aria-controls="documentacao-formulario" onClick={() => mostrarForm ? fecharForm() : novoForm()}>
                   {mostrarForm ? 'Recolher formulário' : '+ Novo Documento'}
                 </button>
               )}

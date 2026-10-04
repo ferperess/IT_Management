@@ -44,7 +44,7 @@ export default function Usuarios() {
         <div className="card-box">
           <div className="page-header">
             <h2>Gestão de Usuários</h2>
-            <button className="btn btn-primary" onClick={() => navigate('/usuarios/novo')}>
+            <button className="btn btn-primary" onClick={() => navigate('/usuarios/cadastro')}>
               + Cadastrar Usuário
             </button>
           </div>
