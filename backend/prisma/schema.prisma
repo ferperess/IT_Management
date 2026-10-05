@@ -21,6 +21,7 @@ model USUARIOS {
   pausas_encerradas PAUSAS_SLA_CHAMADOS[] @relation("pausa_fim")
 
   chamados_abertos    CHAMADOS[]           @relation("solicitante")
+  chamados_registrados CHAMADOS[]          @relation("autor_abertura")
   chamados_atribuidos CHAMADOS[]           @relation("tecnico")
   historicos          HISTORICO_CHAMADOS[]
   historicos_ativos   HISTORICO_ATIVOS[]
@@ -67,6 +68,8 @@ model CHAMADOS {
 
   id_solicitante BigInt
   solicitante    USUARIOS @relation("solicitante", fields: [id_solicitante], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id_aberto_por BigInt?
+  aberto_por USUARIOS? @relation("autor_abertura", fields: [id_aberto_por], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   id_ativo BigInt?
   ativo    ATIVOS? @relation(fields: [id_ativo], references: [id], onDelete: NoAction, onUpdate: NoAction)
