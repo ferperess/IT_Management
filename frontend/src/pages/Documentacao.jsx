@@ -38,6 +38,12 @@ export default function Documentacao() {
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
   const [baixando, setBaixando] = useState(null);
+  const [documentoExcluir, setDocumentoExcluir] = useState(null);
+  const [excluindo, setExcluindo] = useState(false);
+  const [erroExclusao, setErroExclusao] = useState('');
+  const exclusaoDialog = useRef(null);
+  const exclusaoBotao = useRef(null);
+  const travaExclusao = useRef(false);
   const formTitulo = useRef(null);
   const arquivoInput = useRef(null);
   const formBotao = useRef(null);
@@ -62,6 +68,19 @@ export default function Documentacao() {
   }
 
   useEffect(() => { carregar(); }, []);
+  useEffect(() => {
+    if (!documentoExcluir) return;
+    const modal = exclusaoDialog.current;
+    const overflowAnterior = document.body.style.overflow;
+    modal.showModal();
+    document.body.style.overflow = 'hidden';
+    return () => {
+      modal.close();
+      document.body.style.overflow = overflowAnterior;
+      if (exclusaoBotao.current?.isConnected) exclusaoBotao.current.focus();
+      else formBotao.current?.focus();
+    };
+  }, [documentoExcluir]);
   useEffect(() => {
     if (cadastroDocumento) {
       if (!podeEditar) {
@@ -178,14 +197,24 @@ export default function Documentacao() {
     }
   }
 
-  async function remover(id) {
-    if (!window.confirm('Remover este documento?')) return;
+  function solicitarExclusao(documento, botao) {
+    exclusaoBotao.current = botao;
+    setErroExclusao('');
+    setDocumentoExcluir(documento);
+  }
+
+  async function remover() {
+    if (!documentoExcluir || travaExclusao.current) return;
+    travaExclusao.current = true;
+    setExcluindo(true); setErroExclusao('');
     try {
-      await api.delete(`/documentacoes/${id}`);
-      carregar();
+      await api.delete(`/documentacoes/${documentoExcluir.id}`);
+      setDocs(lista => lista.filter(doc => doc.id !== documentoExcluir.id));
+      setLendoDoc(atual => atual?.id === documentoExcluir.id ? null : atual);
+      setDocumentoExcluir(null);
     } catch (err) {
-      alert(err.response?.data?.erro || 'Erro ao remover.');
-    }
+      setErroExclusao(err.response?.data?.erro || 'Não foi possível excluir o documento. Tente novamente.');
+    } finally { travaExclusao.current = false; setExcluindo(false); }
   }
 
   function fmtData(d) {
@@ -341,7 +370,7 @@ export default function Documentacao() {
                         <>
                           <button className="btn btn-secondary btn-sm" onClick={() => iniciarEdicao(d)}>Editar</button>
                           {usuario?.perfil === 'ADMIN' && (
-                            <button className="btn btn-danger btn-sm" onClick={() => remover(d.id)}>Remover</button>
+                            <button className="btn btn-danger btn-sm" onClick={e => solicitarExclusao(d, e.currentTarget)}>Remover</button>
                           )}
                         </>
                       ))}
@@ -397,6 +426,18 @@ export default function Documentacao() {
         )}
 
       </main>
+      <dialog ref={exclusaoDialog} className="document-delete-dialog" aria-labelledby="document-delete-title" aria-describedby="document-delete-description document-delete-warning" onCancel={e => e.preventDefault()}>
+        <h2 id="document-delete-title">Excluir Documento</h2>
+        <hr className="divider" />
+        <p id="document-delete-description">Confirma que deseja excluir o documento abaixo?</p>
+        <p className="document-delete-name"><strong>{documentoExcluir?.titulo}</strong></p>
+        <p id="document-delete-warning">Esta ação é irreversível e não será possível recuperá-lo.</p>
+        {erroExclusao && <div className="alert alert-erro" role="alert">{erroExclusao}</div>}
+        <div className="form-actions">
+          <button type="button" className="btn btn-secondary" autoFocus disabled={excluindo} onClick={() => { if (!travaExclusao.current) setDocumentoExcluir(null); }}>Cancelar</button>
+          <button type="button" className="btn btn-primary" disabled={excluindo} onClick={remover}>{excluindo ? 'Excluindo…' : 'Confirmar'}</button>
+        </div>
+      </dialog>
     </>
   );
 }
