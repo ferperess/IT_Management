@@ -13,7 +13,7 @@ const categorias = { HARDWARE: 'Hardware', SOFTWARE: 'Software', REDE: 'Rede', A
 // Espelha validators.js; a API continua responsável por validar a transição.
 const transicoes = { ABERTO: ['EM_ANDAMENTO', 'CANCELADO'], EM_ANDAMENTO: ['AGUARDANDO_USUARIO', 'CONCLUIDO', 'CANCELADO'], AGUARDANDO_USUARIO: ['EM_ANDAMENTO', 'CANCELADO'], CONCLUIDO: [], CANCELADO: [] };
 const novoVazio = { titulo: '', descricao: '', id_ativo: '', exige_confirmacao: false, id_solicitante: '' };
-const filtrosVazios = { busca: '', status: '', prioridade: '', categoria: '', ativo: '', inicio: '', fim: '' };
+const filtrosVazios = { busca: '', status: '', prioridade: '', categoria: '', ativo: '', localizacao: '', inicio: '', fim: '' };
 const normalizar = value => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 const fmtData = value => value ? new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
 function Badge({ valor, prioridade = false }) {
@@ -39,6 +39,9 @@ export default function Chamados() {
   const [chamados, setChamados] = useState([]);
   const [statusMobile, setStatusMobile] = useState('ABERTO');
   const [ativos, setAtivos] = useState([]);
+  const [locais, setLocais] = useState([]);
+  const [carregandoLocais, setCarregandoLocais] = useState(true);
+  const [erroLocais, setErroLocais] = useState('');
   const [documentos, setDocumentos] = useState([]);
   const [erroDocumentos, setErroDocumentos] = useState('');
   const [baixandoDoc, setBaixandoDoc] = useState(null);
@@ -81,25 +84,41 @@ export default function Chamados() {
     async function carregarAuxiliares() {
       const resultados = await Promise.allSettled([
         api.get('/ativos'),
+        api.get('/locais'),
         usuario?.perfil === 'ADMIN' ? api.get('/usuarios') : Promise.resolve({ data: [] }),
         podeGerenciar ? api.get('/documentacoes') : Promise.resolve({ data: [] }),
       ]);
       if (!ativo) return;
       if (resultados[0].status === 'fulfilled') setAtivos(resultados[0].value.data);
-      if (resultados[1].status === 'fulfilled') {
-        setTecnicos(resultados[1].value.data.filter(u => ['ADMIN', 'TECNICO'].includes(u.perfil) && u.status === 'ATIVO'));
-        setSolicitantes(resultados[1].value.data.filter(u => u.status === 'ATIVO' && String(u.id) !== String(usuario.id)));
+      if (resultados[1].status === 'fulfilled') setLocais(resultados[1].value.data);
+      else setErroLocais('Não foi possível carregar as localizações.');
+      setCarregandoLocais(false);
+      if (resultados[2].status === 'fulfilled') {
+        setTecnicos(resultados[2].value.data.filter(u => ['ADMIN', 'TECNICO'].includes(u.perfil) && u.status === 'ATIVO'));
+        setSolicitantes(resultados[2].value.data.filter(u => u.status === 'ATIVO' && String(u.id) !== String(usuario.id)));
       }
-      if (resultados[2].status === 'fulfilled') setDocumentos(resultados[2].value.data);
+      if (resultados[3].status === 'fulfilled') setDocumentos(resultados[3].value.data);
       else setErroDocumentos('Não foi possível carregar as opções de documentação. Recarregue a página para tentar novamente.');
       const avisos = [];
       if (resultados[0].status === 'rejected') avisos.push('A lista de ativos está indisponível. Você ainda pode abrir um chamado sem vínculo.');
-      if (resultados[1].status === 'rejected') avisos.push('A lista de usuários está indisponível. Não é possível escolher outro solicitante. A atribuição atual será preservada.');
+      if (resultados[2].status === 'rejected') avisos.push('A lista de usuários está indisponível. Não é possível escolher outro solicitante. A atribuição atual será preservada.');
       setAvisoAuxiliar(avisos.join(' '));
     }
     carregarAuxiliares();
     return () => { ativo = false; };
   }, [usuario?.perfil]);
+  async function carregarLocais() {
+    setCarregandoLocais(true);
+    setErroLocais('');
+    try {
+      const { data } = await api.get('/locais');
+      setLocais(data);
+    } catch {
+      setErroLocais('Não foi possível carregar as localizações.');
+    } finally {
+      setCarregandoLocais(false);
+    }
+  }
   useEffect(() => {
     if (!location.state?.abrirNovoChamado) return;
     setFormAberto(true);
@@ -203,6 +222,7 @@ export default function Chamados() {
     return !periodoInvalido && (!filtros.busca || normalizar([c.id, c.titulo, c.solicitante?.nome, c.tecnico?.nome, c.ativo?.nome].join(' ')).includes(normalizar(filtros.busca.trim())))
       && (!filtros.status || c.status === filtros.status) && (!filtros.prioridade || c.prioridade === filtros.prioridade)
       && (!filtros.categoria || c.categoria === filtros.categoria) && (!filtros.ativo || String(c.id_ativo) === filtros.ativo)
+      && (!filtros.localizacao || String(c.ativo?.local?.id) === filtros.localizacao)
       && (!filtros.inicio || data >= new Date(`${filtros.inicio}T00:00:00`)) && (!filtros.fim || data <= new Date(`${filtros.fim}T23:59:59.999`));
   });
 
@@ -236,8 +256,11 @@ export default function Chamados() {
         <Campo id="ch-prioridade" label="Prioridade"><select id="ch-prioridade" className="form-control" value={filtros.prioridade} onChange={mudarFiltro('prioridade')}><option value="">Todas</option><Opcoes items={prioLabel} /></select></Campo>
         <Campo id="ch-categoria" label="Categoria"><select id="ch-categoria" className="form-control" value={filtros.categoria} onChange={mudarFiltro('categoria')}><option value="">Todas</option><Opcoes items={categorias} /></select></Campo>
       </div>
-      <details className="ch-more"><summary>Mais filtros: ativo e período</summary><div className="ch-filters ch-extra">
+      <details className="ch-more"><summary>Mais filtros: ativo, localização e período</summary><div className="ch-filters ch-extra">
         <Campo id="ch-filtro-ativo" label="Ativo"><select id="ch-filtro-ativo" className="form-control" value={filtros.ativo} onChange={mudarFiltro('ativo')}><option value="">Todos</option>{ativos.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}</select></Campo>
+        <Campo id="ch-filtro-localizacao" label="Localização"><select id="ch-filtro-localizacao" className="form-control" value={filtros.localizacao} onChange={mudarFiltro('localizacao')} disabled={carregandoLocais || !!erroLocais}><option value="">{carregandoLocais ? 'Carregando localizações…' : 'Todas'}</option>{locais.map(local => <option key={local.id} value={String(local.id)}>{local.nome}</option>)}</select>
+          {erroLocais && <p role="alert">{erroLocais} <button type="button" className="btn btn-secondary btn-sm" onClick={carregarLocais}>Tentar novamente</button></p>}
+        </Campo>
         <Campo id="ch-inicio" label="Abertura a partir de"><input id="ch-inicio" type="date" className="form-control" value={filtros.inicio} onChange={mudarFiltro('inicio')} /></Campo>
         <Campo id="ch-fim" label="Abertura até"><input id="ch-fim" type="date" className="form-control" value={filtros.fim} min={filtros.inicio || undefined} onChange={mudarFiltro('fim')} /></Campo>
       </div></details>

@@ -13,7 +13,7 @@ const {
 const include = {
   aberto_por: { select: { id: true, nome: true } },
   solicitante: { select: { id: true, nome: true } },
-  ativo: { select: { id: true, nome: true } },
+  ativo: { select: { id: true, nome: true, local: { select: { id: true, nome: true } } } },
   tecnico: { select: { id: true, nome: true } },
   pausas_sla: { orderBy: { iniciado_em: 'asc' } },
   documentos_vinculados: { include: { documentacao: { select: { id: true, titulo: true, descricao: true, arquivo_nome: true, link_externo: true } } } },

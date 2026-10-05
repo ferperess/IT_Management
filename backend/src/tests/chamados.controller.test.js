@@ -39,7 +39,10 @@ describe('chamadosController: listar', () => {
   beforeEach(() => jest.clearAllMocks());
 
   test('deve retornar lista de chamados', async () => {
-    const lista = [{ id: 1, titulo: 'Problema no PC', status: 'ABERTO', criado_em: new Date(), pausas_sla: [] }];
+    const lista = [{
+      id: 1, titulo: 'Problema no PC', status: 'ABERTO', criado_em: new Date(), pausas_sla: [],
+      ativo: { id: 10, nome: 'Computador', local: { id: 2, nome: 'Laboratório' } },
+    }];
     prisma.cHAMADOS.findMany.mockResolvedValue(lista);
     const req = { usuario: { perfil: 'ADMIN', id: 1n } };
     const res = mockRes();
@@ -47,8 +50,13 @@ describe('chamadosController: listar', () => {
     await listar(req, res);
 
     expect(res.json).toHaveBeenCalledWith(expect.arrayContaining([
-      expect.objectContaining({ id: 1, titulo: 'Problema no PC', sla: expect.any(Object) }),
+      expect.objectContaining({ id: 1, titulo: 'Problema no PC', ativo: lista[0].ativo, sla: expect.any(Object) }),
     ]));
+    expect(prisma.cHAMADOS.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      include: expect.objectContaining({
+        ativo: { select: { id: true, nome: true, local: { select: { id: true, nome: true } } } },
+      }),
+    }));
   });
 
   test('não deve expor prazos nem pausas de SLA para usuário comum', async () => {
