@@ -206,6 +206,52 @@ describe('opção de confirmação na abertura', () => {
   });
 });
 
+describe('abertura em nome de outra pessoa', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    prisma.uSUARIOS.findUnique.mockImplementation(async ({ where }) => where.id === 1n
+      ? { id: 1n, nome: 'Admin Ana', status: 'ATIVO' }
+      : where.id === 2n ? { id: 2n, nome: 'Bruno', status: 'ATIVO' } : null);
+    prisma.cHAMADOS.create.mockResolvedValue({ id: 10n, status: 'ABERTO' });
+    prisma.hISTORICO_CHAMADOS.create.mockResolvedValue({});
+  });
+  const request = (perfil, extra = {}) => ({ usuario: { id: 1n, perfil }, body: { titulo: 'Computador parado', descricao: 'Computador não inicia o sistema', id_solicitante: '2', ...extra } });
+  test('admin registra destinatário e autor autenticado, inclusive no histórico', async () => {
+    const res = mockRes();
+    await criar(request('ADMIN', { id_aberto_por: '999' }), res);
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(prisma.cHAMADOS.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ id_solicitante: 2n, id_aberto_por: 1n }) }));
+    expect(prisma.hISTORICO_CHAMADOS.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ id_usuario: 1n, comentario: 'Chamado aberto por Admin Ana em nome de Bruno.' }) }));
+  });
+  test.each(['TECNICO', 'COMUM'])('bloqueia perfil %s mesmo enviando solicitante diretamente à API', async perfil => {
+    const res = mockRes();
+    await criar(request(perfil), res);
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(prisma.cHAMADOS.create).not.toHaveBeenCalled();
+  });
+  test('recusa solicitante inativo', async () => {
+    prisma.uSUARIOS.findUnique.mockResolvedValue({ id: 2n, nome: 'Bruno', status: 'INATIVO' });
+    const res = mockRes();
+    await criar(request('ADMIN'), res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(prisma.cHAMADOS.create).not.toHaveBeenCalled();
+  });
+  test.each(['999', 'abc', null])('recusa solicitante inexistente ou ID inválido: %s', async id_solicitante => {
+    const res = mockRes();
+    await criar(request('ADMIN', { id_solicitante }), res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(prisma.cHAMADOS.create).not.toHaveBeenCalled();
+  });
+  test('abertura comum continua em nome do próprio usuário', async () => {
+    const req = request('COMUM');
+    delete req.body.id_solicitante;
+    const res = mockRes();
+    await criar(req, res);
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(prisma.cHAMADOS.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ id_solicitante: 1n, id_aberto_por: 1n }) }));
+  });
+});
+
 describe('chamadosController: atualizar', () => {
   beforeEach(() => jest.clearAllMocks());
 

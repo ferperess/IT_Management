@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import ConfirmarInativacao from '../components/ConfirmarInativacao';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import usePageTitle from '../hooks/usePageTitle';
@@ -28,6 +29,8 @@ export default function Ativos() {
   const podeEditar = ['ADMIN', 'TECNICO'].includes(usuario?.perfil);
 
   const [ativos, setAtivos] = useState([]);
+  const [ativoInativar, setAtivoInativar] = useState(null);
+  const cadastroBotao = useRef(null);
   const [locais, setLocais] = useState([]);
   const [carregandoLocais, setCarregandoLocais] = useState(false);
   const [erroLocais, setErroLocais] = useState('');
@@ -169,14 +172,10 @@ export default function Ativos() {
     }
   }
 
-  async function remover(id) {
-    if (!window.confirm('Remover este ativo?')) return;
-    try {
-      await api.delete(`/ativos/${id}`);
-      carregar();
-    } catch (err) {
-      alert(err.response?.data?.erro || 'Erro ao remover ativo.');
-    }
+  async function inativar() {
+    await api.put(`/ativos/${ativoInativar.id}`, { status: 'INATIVO' });
+    setAtivos(lista => lista.map(a => a.id === ativoInativar.id ? { ...a, status: 'INATIVO' } : a));
+    setAtivoInativar(null);
   }
 
   return (
@@ -187,7 +186,7 @@ export default function Ativos() {
           <div className="page-header">
             <h2>Gestão de Ativos</h2>
             {podeEditar && (
-              <button className="btn btn-primary" onClick={novoForm}>+ Cadastrar Ativo</button>
+              <button ref={cadastroBotao} className="btn btn-primary" onClick={novoForm}>+ Cadastrar Ativo</button>
             )}
           </div>
           {carregandoLista ? <p className="list-feedback" role="status">Carregando ativos…</p> : erroLista ? (
@@ -210,7 +209,7 @@ export default function Ativos() {
                       <div className="actions-bar">
                         <button className="btn btn-secondary btn-sm" onClick={() => iniciarEdicao(a)}>Editar</button>
                         {usuario?.perfil === 'ADMIN' && (
-                          <button className="btn btn-danger btn-sm" onClick={() => remover(a.id)}>Inativar</button>
+                          <button className="btn btn-danger btn-sm" disabled={a.status === 'INATIVO'} onClick={() => setAtivoInativar(a)}>Inativar</button>
                         )}
                       </div>
                     </td>
@@ -299,6 +298,7 @@ export default function Ativos() {
           </div>
         )}
       </main>
+      {ativoInativar && <ConfirmarInativacao titulo="Inativar Ativo" pergunta="Confirma que deseja inativar o ativo abaixo?" identificacao={`${ativoInativar.nome} - ${ativoInativar.patrimonio || 'Sem patrimônio'}`} onConfirmar={inativar} onCancelar={() => setAtivoInativar(null)} focoRetorno={cadastroBotao} />}
     </>
   );
 }

@@ -12,7 +12,7 @@ const prioLabel = { BAIXA: 'Baixa', MEDIA: 'Média', ALTA: 'Alta', CRITICA: 'Cr�
 const categorias = { HARDWARE: 'Hardware', SOFTWARE: 'Software', REDE: 'Rede', ACESSO: 'Acesso', IMPRESSORA: 'Impressora', AUDIOVISUAL: 'Audiovisual', OUTRO: 'Outro' };
 // Espelha validators.js; a API continua responsável por validar a transição.
 const transicoes = { ABERTO: ['EM_ANDAMENTO', 'CANCELADO'], EM_ANDAMENTO: ['AGUARDANDO_USUARIO', 'CONCLUIDO', 'CANCELADO'], AGUARDANDO_USUARIO: ['EM_ANDAMENTO', 'CANCELADO'], CONCLUIDO: [], CANCELADO: [] };
-const novoVazio = { titulo: '', descricao: '', id_ativo: '', exige_confirmacao: false };
+const novoVazio = { titulo: '', descricao: '', id_ativo: '', exige_confirmacao: false, id_solicitante: '' };
 const filtrosVazios = { busca: '', status: '', prioridade: '', categoria: '', ativo: '', inicio: '', fim: '' };
 const normalizar = value => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 const fmtData = value => value ? new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
@@ -21,6 +21,10 @@ function Badge({ valor, prioridade = false }) {
 }
 function Campo({ id, label, children }) {
   return <div className="form-group"><label htmlFor={id}>{label}</label>{children}</div>;
+}
+function AutoriaChamado({ chamado }) {
+  if (!chamado.aberto_por || String(chamado.id_aberto_por) === String(chamado.id_solicitante)) return null;
+  return <p className="ch-muted">Aberto por <strong>{chamado.aberto_por.nome}</strong> em nome de <strong>{chamado.solicitante?.nome || '—'}</strong>.</p>;
 }
 function Opcoes({ items }) {
   return Object.entries(items).map(([value, label]) => <option key={value} value={value}>{label}</option>);
@@ -39,6 +43,7 @@ export default function Chamados() {
   const [erroDocumentos, setErroDocumentos] = useState('');
   const [baixandoDoc, setBaixandoDoc] = useState(null);
   const [tecnicos, setTecnicos] = useState([]);
+  const [solicitantes, setSolicitantes] = useState([]);
   const [avisoAuxiliar, setAvisoAuxiliar] = useState('');
   const [carregando, setCarregando] = useState(true);
   const [erroLista, setErroLista] = useState('');
@@ -81,12 +86,15 @@ export default function Chamados() {
       ]);
       if (!ativo) return;
       if (resultados[0].status === 'fulfilled') setAtivos(resultados[0].value.data);
-      if (resultados[1].status === 'fulfilled') setTecnicos(resultados[1].value.data.filter(u => ['ADMIN', 'TECNICO'].includes(u.perfil) && u.status === 'ATIVO'));
+      if (resultados[1].status === 'fulfilled') {
+        setTecnicos(resultados[1].value.data.filter(u => ['ADMIN', 'TECNICO'].includes(u.perfil) && u.status === 'ATIVO'));
+        setSolicitantes(resultados[1].value.data.filter(u => u.status === 'ATIVO' && String(u.id) !== String(usuario.id)));
+      }
       if (resultados[2].status === 'fulfilled') setDocumentos(resultados[2].value.data);
       else setErroDocumentos('Não foi possível carregar as opções de documentação. Recarregue a página para tentar novamente.');
       const avisos = [];
       if (resultados[0].status === 'rejected') avisos.push('A lista de ativos está indisponível. Você ainda pode abrir um chamado sem vínculo.');
-      if (resultados[1].status === 'rejected') avisos.push('A lista de responsáveis está indisponível. A atribuição atual será preservada.');
+      if (resultados[1].status === 'rejected') avisos.push('A lista de usuários está indisponível. Não é possível escolher outro solicitante. A atribuição atual será preservada.');
       setAvisoAuxiliar(avisos.join(' '));
     }
     carregarAuxiliares();
@@ -133,7 +141,7 @@ export default function Chamados() {
     }
     travaCriacao.current = true; setCriando(true); setErroNovo(''); setMensagem(''); setAvisoClassificacao('');
     try {
-      const { data } = await api.post('/chamados', { titulo: novo.titulo.trim(), descricao: novo.descricao.trim(), id_ativo: novo.id_ativo ? String(novo.id_ativo) : null, exige_confirmacao: novo.exige_confirmacao });
+      const { data } = await api.post('/chamados', { titulo: novo.titulo.trim(), descricao: novo.descricao.trim(), id_ativo: novo.id_ativo ? String(novo.id_ativo) : null, exige_confirmacao: novo.exige_confirmacao, ...(usuario?.perfil === 'ADMIN' && novo.id_solicitante ? { id_solicitante: novo.id_solicitante } : {}) });
       setChamados(lista => [data, ...lista.filter(c => c.id !== data.id)]);
       setNovo(novoVazio); setFormAberto(false);
       setAvisoClassificacao(data.aviso ? `Chamado #${data.id}: ${data.aviso}` : '');
@@ -208,10 +216,11 @@ export default function Chamados() {
       <h2 id="ch-novo-titulo">Novo chamado</h2><p className="ch-muted">Conte o que aconteceu. Categoria e prioridade serão definidas automaticamente e podem ser revisadas pela equipe técnica.</p>
       {erroNovo && <div role="alert" className="alert alert-erro">{erroNovo}</div>}
       <form onSubmit={criar}><fieldset disabled={criando}>
+        {usuario?.perfil === 'ADMIN' && <Campo id="ch-solicitante" label="Abrir chamado em nome de"><select id="ch-solicitante" className="form-control" value={novo.id_solicitante} onChange={mudarNovo('id_solicitante')}><option value="">Mim mesmo ({usuario.nome})</option>{solicitantes.map(u => <option key={u.id} value={String(u.id)}>{u.nome} — {u.email}</option>)}</select>{novo.id_solicitante && <p className="ch-muted">Será registrado que {usuario.nome} abriu este chamado em nome de {solicitantes.find(u => String(u.id) === novo.id_solicitante)?.nome}.</p>}</Campo>}
         <Campo id="ch-titulo" label="Título do problema"><input ref={tituloInput} id="ch-titulo" className="form-control" value={novo.titulo} onChange={mudarNovo('titulo')} required minLength={5} placeholder="Ex.: Projetor do laboratório não liga" /></Campo>
         <Campo id="ch-descricao" label="Descrição detalhada"><textarea id="ch-descricao" className="form-control" rows={4} value={novo.descricao} onChange={mudarNovo('descricao')} required minLength={10} placeholder="Descreva o problema, o local e como ele afeta sua atividade." /></Campo>
         <Campo id="ch-ativo" label="Ativo relacionado (opcional)"><select id="ch-ativo" className="form-control" value={novo.id_ativo} onChange={mudarNovo('id_ativo')}><option value="">Sem ativo vinculado</option>{ativos.map(a => <option key={a.id} value={a.id} disabled={['MANUTENCAO', 'EM_MANUTENCAO'].includes(a.status)}>{a.nome} ({a.tipo}){['MANUTENCAO', 'EM_MANUTENCAO'].includes(a.status) ? ' — em manutenção' : ''}</option>)}</select></Campo>
-        <div className="form-group"><label><input type="checkbox" checked={novo.exige_confirmacao} onChange={e => setNovo(f => ({ ...f, exige_confirmacao: e.target.checked }))} /> Exigir confirmação do solicitante para encerrar</label><p className="ch-muted">Se marcado, você deverá confirmar a solução antes do encerramento. Caso contrário, a equipe técnica poderá concluir diretamente.</p></div>
+        <div className="form-group"><label><input type="checkbox" checked={novo.exige_confirmacao} onChange={e => setNovo(f => ({ ...f, exige_confirmacao: e.target.checked }))} /> Exigir confirmação do solicitante para encerrar</label><p className="ch-muted">Se marcado, o solicitante deverá confirmar a solução antes do encerramento. Caso contrário, a equipe técnica poderá concluir diretamente.</p></div>
         <div className="ch-actions"><button type="button" className="btn btn-secondary" onClick={() => { setFormAberto(false); novoBotao.current?.focus(); }}>Recolher e manter rascunho</button><button className="btn btn-primary" type="submit">{criando ? 'Registrando e classificando…' : 'Registrar chamado'}</button></div>
       </fieldset></form>
     </section>
@@ -245,7 +254,7 @@ export default function Chamados() {
         </div><div className="ch-board">{Object.entries(statusLabel).filter(([s]) => !filtros.status || s === filtros.status).map(([s, label]) => {
           const cards = filtrados.filter(c => c.status === s);
           return <section className={`ch-column ch-column-${s}`} key={s} id={`ch-coluna-${s}`} data-mobile-active={(filtros.status || statusMobile) === s} aria-label={label}><div className="ch-column-heading"><h2>{label}</h2><span>{cards.length}</span></div><div className="ch-cards">{cards.length ? cards.map(c => <article key={c.id} className="ch-ticket"><div className="ch-ticket-top"><span>#{c.id}</span><Badge valor={c.prioridade} prioridade /></div><h3><button className="ch-title-link" onClick={() => abrirDetalhe(c.id)}>{c.titulo}</button></h3><p className="ch-muted">{categorias[c.categoria] || 'Outro'}</p><dl><dt>Solicitante</dt><dd>{c.solicitante?.nome || '—'}</dd><dt>Responsável</dt><dd>{c.tecnico?.nome || 'Não atribuído'}</dd>{c.ativo && <><dt>Ativo</dt><dd>{c.ativo.nome}</dd></>}</dl><SlaChamado chamado={c} compacto /><div className="ch-ticket-footer"><time dateTime={c.criado_em}>{fmtData(c.criado_em)}</time><button className="ch-link" aria-label={`Ver chamado ${c.id}`} onClick={() => abrirDetalhe(c.id)}>Ver detalhes</button></div></article>) : <p className="ch-column-empty">Nenhum chamado nesta etapa.</p>}</div></section>;
-        })}</div></> : <div className="ch-table-wrap" role="region" aria-label="Lista de chamados" tabIndex={0}><table className="cps-table"><thead><tr>{['Chamado', 'Solicitante / responsável', 'Prioridade', 'Status', 'Abertura'].map(t => <th scope="col" key={t}>{t}</th>)}</tr></thead><tbody>{filtrados.map(c => <tr key={c.id}><td><button className="ch-title-link" onClick={() => abrirDetalhe(c.id)}>#{c.id} · {c.titulo}</button><span className="ch-cell-sub">{categorias[c.categoria] || 'Outro'}{c.ativo ? ` · ${c.ativo.nome}` : ''}</span></td><td>{c.solicitante?.nome || '—'}<span className="ch-cell-sub">{c.tecnico?.nome || 'Não atribuído'}</span></td><td><Badge valor={c.prioridade} prioridade /></td><td><Badge valor={c.status} /><SlaChamado chamado={c} compacto /></td><td><time dateTime={c.criado_em}>{fmtData(c.criado_em)}</time></td></tr>)}</tbody></table></div>}
+        })}</div></> : <div className="ch-table-wrap" role="region" aria-label="Lista de chamados" tabIndex={0}><table className="cps-table"><thead><tr>{['Chamado', 'Solicitante / responsável', 'Prioridade', 'Status', 'Abertura'].map(t => <th scope="col" key={t}>{t}</th>)}</tr></thead><tbody>{filtrados.map(c => <tr key={c.id}><td><button className="ch-title-link" onClick={() => abrirDetalhe(c.id)}>#{c.id} · {c.titulo}</button><span className="ch-cell-sub">{categorias[c.categoria] || 'Outro'}{c.ativo ? ` · ${c.ativo.nome}` : ''}</span></td><td>{c.solicitante?.nome || '—'}<span className="ch-cell-sub">{c.tecnico?.nome || 'Não atribuído'}</span></td><td><Badge valor={c.prioridade} prioridade /></td><td><Badge valor={c.status} /><AutoriaChamado chamado={c} /><SlaChamado chamado={c} compacto /></td><td><time dateTime={c.criado_em}>{fmtData(c.criado_em)}</time></td></tr>)}</tbody></table></div>}
     </section>
     <dialog ref={dialog} className="ch-drawer" aria-labelledby="ch-detalhe-titulo" onCancel={e => { e.preventDefault(); fecharDetalhe(); }}>
       <div className="ch-drawer-head"><h2 id="ch-detalhe-titulo">{detalhe ? `Chamado #${detalhe.id}` : 'Detalhes do chamado'}</h2><button className="btn btn-secondary ch-close" type="button" autoFocus disabled={salvando} onClick={fecharDetalhe}>Fechar</button></div>
@@ -255,6 +264,7 @@ export default function Chamados() {
       {detalhe && <><h3 className="ch-detail-title">{detalhe.titulo}</h3><div className="ch-detail-badges"><Badge valor={detalhe.status} /><Badge valor={detalhe.prioridade} prioridade /></div><dl className="ch-detail-meta"><dt>Solicitante</dt><dd>{detalhe.solicitante?.nome || '—'}</dd><dt>Abertura</dt><dd>{fmtData(detalhe.criado_em)}</dd><dt>Categoria</dt><dd>{categorias[detalhe.categoria] || 'Outro'}</dd><dt>Responsável</dt><dd>{detalhe.tecnico?.nome || 'Não atribuído'}</dd><dt>Ativo</dt><dd>{detalhe.ativo?.nome || 'Sem vínculo'}</dd></dl><h3>Descrição</h3><p className="ch-description">{detalhe.descricao}</p>
         {['CONCLUIDO', 'CANCELADO'].includes(detalhe.status) && <p className="ch-notice" role="status">Este chamado foi {detalhe.status === 'CONCLUIDO' ? 'concluído' : 'cancelado'} e está disponível somente para consulta</p>}
         <SlaChamado chamado={detalhe} />
+        <AutoriaChamado chamado={detalhe} />
         <p className="ch-muted">Confirmação do solicitante: {detalhe.exige_confirmacao ? 'obrigatória para encerrar' : 'não exigida'}.</p><br></br>
         {detalhe.confirmacao_pendente && <section className="ch-notice" aria-label="Confirmação de encerramento"><p>A equipe técnica solicitou o encerramento. Aguardando confirmação do solicitante.</p>{String(detalhe.id_solicitante) === String(usuario.id) && <div className="ch-actions"><button type="button" className="btn btn-primary" disabled={salvando} onClick={() => responderConfirmacao(true)}>Confirmar solução e encerrar</button><button type="button" className="btn btn-secondary" disabled={salvando} onClick={() => responderConfirmacao(false)}>Não foi resolvido — retomar atendimento</button></div>}</section>}
         {podeGerenciar && <section className="related-docs"><h3>Documentações relacionadas</h3>{detalhe.documentos_vinculados?.length ? <ul>{detalhe.documentos_vinculados.map(({ documentacao: doc }) => <li key={doc.id}><details><summary>{doc.titulo}</summary><p>{doc.descricao || 'Sem descrição.'}</p>{/^https?:\/\//i.test(doc.link_externo || '') && <a href={doc.link_externo} target="_blank" rel="noopener noreferrer">Abrir link externo</a>}{doc.arquivo_nome && <button type="button" className="btn btn-secondary" disabled={baixandoDoc === doc.id} onClick={() => baixarDocumento(doc)}>{baixandoDoc === doc.id ? 'Baixando…' : `Baixar ${doc.arquivo_nome}`}</button>}</details></li>)}</ul> : <p>Nenhuma documentação vinculada.</p>}</section>}

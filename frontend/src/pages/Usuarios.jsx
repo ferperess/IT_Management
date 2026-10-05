@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import ConfirmarInativacao from '../components/ConfirmarInativacao';
 import api from '../services/api';
 import usePageTitle from '../hooks/usePageTitle';
 
@@ -9,6 +10,8 @@ export default function Usuarios() {
   const [carregandoLista, setCarregandoLista] = useState(true);
   const [erroLista, setErroLista] = useState('');
   const [busca, setBusca] = useState('');
+  const [usuarioInativar, setUsuarioInativar] = useState(null);
+  const cadastroBotao = useRef(null);
   const navigate = useNavigate();
   const consultaAtual = useRef(0);
 
@@ -29,10 +32,10 @@ export default function Usuarios() {
 
   useEffect(() => { carregar(); }, []);
 
-  async function inativar(id) {
-    if (!window.confirm('Deseja inativar este usuário?')) return;
-    await api.patch(`/usuarios/${id}/inativar`);
-    carregar(busca);
+  async function inativar() {
+    await api.patch(`/usuarios/${usuarioInativar.id}/inativar`);
+    setUsuarios(lista => lista.map(u => u.id === usuarioInativar.id ? { ...u, status: 'INATIVO' } : u));
+    setUsuarioInativar(null);
   }
 
   const perfilLabel = { ADMIN: 'Administrador', TECNICO: 'Técnico de TI', COMUM: 'Comum' };
@@ -44,7 +47,7 @@ export default function Usuarios() {
         <div className="card-box">
           <div className="page-header">
             <h2>Gestão de Usuários</h2>
-            <button className="btn btn-primary" onClick={() => navigate('/usuarios/cadastro')}>
+            <button ref={cadastroBotao} className="btn btn-primary" onClick={() => navigate('/usuarios/cadastro')}>
               + Cadastrar Usuário
             </button>
           </div>
@@ -84,7 +87,7 @@ export default function Usuarios() {
                         Editar
                       </button>
                       {u.status === 'ATIVO' && (
-                        <button className="btn btn-danger btn-sm" onClick={() => inativar(u.id)}>
+                        <button className="btn btn-danger btn-sm" onClick={() => setUsuarioInativar(u)}>
                           Inativar
                         </button>
                       )}
@@ -104,6 +107,7 @@ export default function Usuarios() {
           )}
         </div>
       </main>
+      {usuarioInativar && <ConfirmarInativacao titulo="Inativar Usuário" pergunta="Confirma que deseja inativar o usuário abaixo?" identificacao={`${usuarioInativar.nome} - ${perfilLabel[usuarioInativar.perfil] || usuarioInativar.perfil}`} onConfirmar={inativar} onCancelar={() => setUsuarioInativar(null)} focoRetorno={cadastroBotao} />}
     </>
   );
 }

@@ -1,5 +1,11 @@
 # Gestão de TI (IT_Management)
 
+### Abertura de chamados em nome de outra pessoa
+
+Antes de iniciar esta versão, aplique `backend/sql/chamados_em_nome_de.sql` no Supabase e execute `npx prisma generate` no backend. O script adiciona somente `CHAMADOS.id_aberto_por` e sua chave estrangeira para `USUARIOS`; registros anteriores permanecem sem autoria presumida.
+
+Na tela de chamados, administradores podem selecionar outro usuário ativo como solicitante. A API valida o perfil, mantém o autor autenticado em `id_aberto_por` e registra “Chamado aberto por X em nome de Y” no histórico. A autoria também aparece na lista, Kanban e detalhes. A visibilidade do usuário comum e a confirmação de encerramento continuam vinculadas ao solicitante selecionado.
+
 Aplicação web para gerenciamento de chamados de TI, ativos, locais e documentação, com autenticação por perfil e acompanhamento de SLA.
 
 ## Requisitos
