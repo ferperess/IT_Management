@@ -12,6 +12,9 @@ jest.mock('../prisma', () => ({
     findUnique: jest.fn(),
     count: jest.fn(),
   },
+  lOCAIS: {
+    findUnique: jest.fn(),
+  },
   uSUARIOS: {
     findUnique: jest.fn(),
   },
@@ -54,6 +57,7 @@ describe('chamadosController: listar', () => {
     ]));
     expect(prisma.cHAMADOS.findMany).toHaveBeenCalledWith(expect.objectContaining({
       include: expect.objectContaining({
+        local: { select: { id: true, nome: true } },
         ativo: { select: { id: true, nome: true, local: { select: { id: true, nome: true } } } },
       }),
     }));
@@ -136,7 +140,10 @@ describe('chamadosController: buscarPorId', () => {
 });
 
 describe('chamadosController: criar', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    prisma.lOCAIS.findUnique.mockResolvedValue({ id: 2n, status: 'ATIVO' });
+  });
 
   test('deve retornar 400 se titulo não for fornecido', async () => {
     const req = { body: { descricao: 'Sem título' }, usuario: { id: 1 } };
@@ -158,6 +165,29 @@ describe('chamadosController: criar', () => {
     expect(res.json).toHaveBeenCalledWith({ erro: 'Campos obrigatórios: titulo, descricao.' });
   });
 
+  test('deve exigir localização', async () => {
+    const req = { body: { titulo: 'Problema no PC', descricao: 'Descrição completa do problema' }, usuario: { id: 1n } };
+    const res = mockRes();
+
+    await criar(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ erro: 'Selecione a localização do problema.' });
+    expect(prisma.cHAMADOS.create).not.toHaveBeenCalled();
+  });
+
+  test('deve rejeitar localização inativa ou inexistente', async () => {
+    prisma.lOCAIS.findUnique.mockResolvedValue({ id: 2n, status: 'INATIVO' });
+    const req = { body: { titulo: 'Problema no PC', descricao: 'Descrição completa do problema', id_local: '2' }, usuario: { id: 1n } };
+    const res = mockRes();
+
+    await criar(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ erro: 'Selecione uma localização ativa.' });
+    expect(prisma.cHAMADOS.create).not.toHaveBeenCalled();
+  });
+
   test('deve criar chamado com dados válidos e prioridade da IA', async () => {
     const solicitante = { id: 1, nome: 'Fer' };
     const chamadoCriado = { id: 1, titulo: 'Problema no PC', descricao: 'PC não liga', status: 'ABERTO', prioridade: 'MEDIA', categoria: 'OUTRO' };
@@ -165,7 +195,7 @@ describe('chamadosController: criar', () => {
     prisma.cHAMADOS.create.mockResolvedValue(chamadoCriado);
     prisma.hISTORICO_CHAMADOS.create.mockResolvedValue({});
 
-    const req = { body: { titulo: 'Problema no PC', descricao: 'Computador não liga para o usuário' }, usuario: { id: 1n } };
+    const req = { body: { titulo: 'Problema no PC', descricao: 'Computador não liga para o usuário', id_local: '2' }, usuario: { id: 1n } };
     const res = mockRes();
 
     await criar(req, res);
@@ -179,11 +209,14 @@ describe('chamadosController: criar', () => {
       sla: expect.any(Object),
       historico: [expect.any(Object)],
     }));
+    expect(prisma.cHAMADOS.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ id_local: 2n }),
+    }));
   });
 
   test('deve retornar 400 se ativo não existir', async () => {
     prisma.aTIVOS.findUnique.mockResolvedValue(null);
-    const req = { body: { titulo: 'Problema no PC', descricao: 'Descrição completa do problema', id_ativo: 99 }, usuario: { id: 1n } };
+    const req = { body: { titulo: 'Problema no PC', descricao: 'Descrição completa do problema', id_local: '2', id_ativo: 99 }, usuario: { id: 1n } };
     const res = mockRes();
 
     await criar(req, res);
@@ -196,19 +229,20 @@ describe('chamadosController: criar', () => {
 describe('opção de confirmação na abertura', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    prisma.lOCAIS.findUnique.mockResolvedValue({ id: 2n, status: 'ATIVO' });
     prisma.uSUARIOS.findUnique.mockResolvedValue({ id: 1n, nome: 'Solicitante' });
     prisma.cHAMADOS.create.mockResolvedValue({ id: 1n, status: 'ABERTO' });
     prisma.hISTORICO_CHAMADOS.create.mockResolvedValue({});
   });
   test.each([true, false, undefined])('persiste checkbox %s com padrão desmarcado', async exige_confirmacao => {
     const res = mockRes();
-    await criar({ body: { titulo: 'Problema no PC', descricao: 'Computador não liga', exige_confirmacao }, usuario: { id: 1n } }, res);
+    await criar({ body: { titulo: 'Problema no PC', descricao: 'Computador não liga', id_local: '2', exige_confirmacao }, usuario: { id: 1n } }, res);
     expect(res.status).toHaveBeenCalledWith(201);
-    expect(prisma.cHAMADOS.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ exige_confirmacao: exige_confirmacao ?? false }) }));
+    expect(prisma.cHAMADOS.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ id_local: 2n, exige_confirmacao: exige_confirmacao ?? false }) }));
   });
   test('não converte texto false em verdadeiro', async () => {
     const res = mockRes();
-    await criar({ body: { titulo: 'Problema no PC', descricao: 'Computador não liga', exige_confirmacao: 'false' }, usuario: { id: 1n } }, res);
+    await criar({ body: { titulo: 'Problema no PC', descricao: 'Computador não liga', id_local: '2', exige_confirmacao: 'false' }, usuario: { id: 1n } }, res);
     expect(res.status).toHaveBeenCalledWith(400);
     expect(prisma.cHAMADOS.create).not.toHaveBeenCalled();
   });
@@ -217,18 +251,19 @@ describe('opção de confirmação na abertura', () => {
 describe('abertura em nome de outra pessoa', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    prisma.lOCAIS.findUnique.mockResolvedValue({ id: 2n, status: 'ATIVO' });
     prisma.uSUARIOS.findUnique.mockImplementation(async ({ where }) => where.id === 1n
       ? { id: 1n, nome: 'Admin Ana', status: 'ATIVO' }
       : where.id === 2n ? { id: 2n, nome: 'Bruno', status: 'ATIVO' } : null);
     prisma.cHAMADOS.create.mockResolvedValue({ id: 10n, status: 'ABERTO' });
     prisma.hISTORICO_CHAMADOS.create.mockResolvedValue({});
   });
-  const request = (perfil, extra = {}) => ({ usuario: { id: 1n, perfil }, body: { titulo: 'Computador parado', descricao: 'Computador não inicia o sistema', id_solicitante: '2', ...extra } });
+  const request = (perfil, extra = {}) => ({ usuario: { id: 1n, perfil }, body: { titulo: 'Computador parado', descricao: 'Computador não inicia o sistema', id_local: '2', id_solicitante: '2', ...extra } });
   test('admin registra destinatário e autor autenticado, inclusive no histórico', async () => {
     const res = mockRes();
     await criar(request('ADMIN', { id_aberto_por: '999' }), res);
     expect(res.status).toHaveBeenCalledWith(201);
-    expect(prisma.cHAMADOS.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ id_solicitante: 2n, id_aberto_por: 1n }) }));
+    expect(prisma.cHAMADOS.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ id_local: 2n, id_solicitante: 2n, id_aberto_por: 1n }) }));
     expect(prisma.hISTORICO_CHAMADOS.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ id_usuario: 1n, comentario: 'Chamado aberto por Admin Ana em nome de Bruno.' }) }));
   });
   test.each(['TECNICO', 'COMUM'])('bloqueia perfil %s mesmo enviando solicitante diretamente à API', async perfil => {

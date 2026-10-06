@@ -13,6 +13,7 @@ const {
 const include = {
   aberto_por: { select: { id: true, nome: true } },
   solicitante: { select: { id: true, nome: true } },
+  local: { select: { id: true, nome: true } },
   ativo: { select: { id: true, nome: true, local: { select: { id: true, nome: true } } } },
   tecnico: { select: { id: true, nome: true } },
   pausas_sla: { orderBy: { iniciado_em: 'asc' } },
@@ -35,7 +36,7 @@ async function listar_chamados(req, res) {
   try {
     const { perfil, id } = req.usuario;
     const where = perfil === 'COMUM' ? { id_solicitante: id } : {};
-    const chamados = await prisma.cHAMADOS.findMany({ where, include: { aberto_por: include.aberto_por, solicitante: include.solicitante, ativo: include.ativo, tecnico: include.tecnico, pausas_sla: include.pausas_sla }, orderBy: { criado_em: 'desc' } });
+    const chamados = await prisma.cHAMADOS.findMany({ where, include: { aberto_por: include.aberto_por, solicitante: include.solicitante, local: include.local, ativo: include.ativo, tecnico: include.tecnico, pausas_sla: include.pausas_sla }, orderBy: { criado_em: 'desc' } });
     res.json(chamados.map(chamado => apresentarChamado(chamado, req.usuario)));
   } catch (err) {
     if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
@@ -59,7 +60,7 @@ async function buscarPorId(req, res) {
 
 async function criar_chamado(req, res) {
   try {
-    const { titulo, descricao, id_ativo, exige_confirmacao = false } = req.body;
+    const { titulo, descricao, id_local, id_ativo, exige_confirmacao = false } = req.body;
     if (typeof exige_confirmacao !== 'boolean') return res.status(400).json({ erro: 'Confirmação do solicitante deve ser verdadeiro ou falso.' });
     const id_aberto_por = req.usuario.id;
     let id_solicitante = id_aberto_por;
@@ -77,6 +78,10 @@ async function criar_chamado(req, res) {
     if (descricao.trim().length < 10) {
       return res.status(400).json({ erro: 'A descrição deve ter no mínimo 10 caracteres.' });
     }
+    if (!id_local) return res.status(400).json({ erro: 'Selecione a localização do problema.' });
+
+    const local = await prisma.lOCAIS.findUnique({ where: { id: toId(id_local) } });
+    if (!local || local.status !== 'ATIVO') return res.status(400).json({ erro: 'Selecione uma localização ativa.' });
 
     if (id_ativo) {
       const ativo = await prisma.aTIVOS.findUnique({ where: { id: toId(id_ativo) } });
@@ -106,7 +111,7 @@ async function criar_chamado(req, res) {
     }
 
     const chamado = await prisma.cHAMADOS.create({
-      data: { titulo, descricao, exige_confirmacao, prioridade, categoria, ...prazosIniciais(prioridade), id_solicitante, id_aberto_por, id_ativo: id_ativo ? toId(id_ativo) : null },
+      data: { titulo, descricao, exige_confirmacao, prioridade, categoria, ...prazosIniciais(prioridade), id_solicitante, id_aberto_por, id_local: local.id, id_ativo: id_ativo ? toId(id_ativo) : null },
       include,
     });
 
