@@ -64,8 +64,8 @@ export default function Dashboard() {
     <>
       <Navbar />
       <main>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30 }}>
-          <h1 style={{ fontSize: 24, fontWeight: 'normal' }}>
+        <div className="dashboard-greeting">
+          <h1>
             Olá, <strong>{usuario?.nome}</strong>!
           </h1>
         </div>

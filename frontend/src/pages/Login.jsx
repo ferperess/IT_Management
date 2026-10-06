@@ -58,7 +58,7 @@ export default function Login() {
               required
             />
           </div>
-          <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
+          <button type="submit" className="btn btn-primary" disabled={loading}>
             {loading ? 'Entrando...' : 'Entrar no Sistema'}
           </button>
         </form>

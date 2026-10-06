@@ -277,8 +277,8 @@ export default function Documentacao() {
                   </div>
                   <div className="form-group">
                     <label htmlFor="documentacao-campo-6">Arquivo (PDF, DOC, DOCX, JPG ou PNG)</label>
-                    <input ref={arquivoInput} id="documentacao-campo-6" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="form-control" style={{ padding: 7 }} onChange={e => setArquivo(e.target.files[0] || null)} required={!editandoId} />
-                    {editandoId && <small style={{ color: '#999' }}>Deixe em branco para manter o arquivo atual.</small>}
+                    <input ref={arquivoInput} id="documentacao-campo-6" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="form-control" onChange={e => setArquivo(e.target.files[0] || null)} required={!editandoId} />
+                    {editandoId && <small className="document-help-text">Deixe em branco para manter o arquivo atual.</small>}
                   </div>
                 </div>
                 <div className="form-actions">
@@ -343,7 +343,7 @@ export default function Documentacao() {
               {docsFiltrados.map(d => (
                 <tr key={d.id}>
                   <td>{d.titulo}</td>
-                  <td>{d.ativo ? d.ativo.nome : <span style={{ color: '#bbb' }}>—</span>}</td>
+                  <td>{d.ativo ? d.ativo.nome : <span className="document-empty-value">—</span>}</td>
                   <td>{d.responsavel?.nome}</td>
                   <td>{fmtData(d.criado_em)}</td>
                   <td>
@@ -379,9 +379,9 @@ export default function Documentacao() {
                 </tr>
               ))}
               {docs.length === 0 ? (
-                <tr><td colSpan={5} style={{ textAlign: 'center', color: '#999', padding: 20 }}>Nenhum documento cadastrado.</td></tr>
+                <tr><td colSpan={5} className="table-empty-state">Nenhum documento cadastrado.</td></tr>
               ) : docsFiltrados.length === 0 && (
-                <tr><td colSpan={5} style={{ textAlign: 'center', color: '#999', padding: 20 }}>Nenhum documento corresponde aos filtros.</td></tr>
+                <tr><td colSpan={5} className="table-empty-state">Nenhum documento corresponde aos filtros.</td></tr>
               )}
             </tbody>
           </table></div>
@@ -396,7 +396,7 @@ export default function Documentacao() {
               <h2>{lendoDoc.titulo}</h2>
               <button className="btn btn-secondary btn-sm" onClick={() => setLendoDoc(null)}>Fechar</button>
             </div>
-            <p style={{ fontSize: 13, color: '#999', marginBottom: 10 }}>
+            <p className="document-meta">
               Por: {lendoDoc.responsavel?.nome} | {new Date(lendoDoc.criado_em).toLocaleDateString('pt-BR')}
             </p>
             {lendoDoc.ativo && (

@@ -267,9 +267,9 @@ export default function Ativos() {
                 </tr>
               ))}
               {ativos.length === 0 ? (
-                <tr><td colSpan={podeEditar ? 6 : 5} style={{ textAlign: 'center', color: '#999', padding: 20 }}>Nenhum ativo cadastrado.</td></tr>
+                <tr><td colSpan={podeEditar ? 6 : 5} className="table-empty-state">Nenhum ativo cadastrado.</td></tr>
               ) : ativosFiltrados.length === 0 && (
-                <tr><td colSpan={podeEditar ? 6 : 5} style={{ textAlign: 'center', color: '#999', padding: 20 }}>Nenhum ativo corresponde aos filtros.</td></tr>
+                <tr><td colSpan={podeEditar ? 6 : 5} className="table-empty-state">Nenhum ativo corresponde aos filtros.</td></tr>
               )}
             </tbody>
           </table></div>

@@ -97,7 +97,7 @@ export default function Usuarios() {
               ))}
               {usuarios.length === 0 && (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', color: '#999', padding: 20 }}>
+                  <td colSpan={5} className="table-empty-state">
                     Nenhum usuário encontrado.
                   </td>
                 </tr>
