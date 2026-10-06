@@ -8,9 +8,11 @@ import Ativos from './pages/Ativos';
 import Chamados from './pages/Chamados';
 import Documentacao from './pages/Documentacao';
 
-function RotaProtegida({ children }) {
-  const { token } = useAuth();
-  return token ? children : <Navigate to="/" replace />;
+function RotaProtegida({ children, perfis }) {
+  const { token, usuario } = useAuth();
+  if (!token) return <Navigate to="/" replace />;
+  if (perfis && !perfis.includes(usuario?.perfil)) return <Navigate to="/dashboard" replace />;
+  return children;
 }
 
 export default function App() {
@@ -19,18 +21,18 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/dashboard" element={<RotaProtegida><Dashboard /></RotaProtegida>} />
-        <Route path="/usuarios" element={<RotaProtegida><Usuarios /></RotaProtegida>} />
-        <Route path="/usuarios/cadastro" element={<RotaProtegida><CadastroUsuario /></RotaProtegida>} />
-        <Route path="/usuarios/edicao" element={<RotaProtegida><CadastroUsuario /></RotaProtegida>} />
+        <Route path="/usuarios" element={<RotaProtegida perfis={['ADMIN']}><Usuarios /></RotaProtegida>} />
+        <Route path="/usuarios/cadastro" element={<RotaProtegida perfis={['ADMIN']}><CadastroUsuario /></RotaProtegida>} />
+        <Route path="/usuarios/edicao" element={<RotaProtegida perfis={['ADMIN']}><CadastroUsuario /></RotaProtegida>} />
         <Route path="/usuarios/novo" element={<Navigate to="/usuarios/cadastro" replace />} />
-        <Route path="/usuarios/:id" element={<RotaProtegida><CadastroUsuario /></RotaProtegida>} />
-        <Route path="/ativos" element={<RotaProtegida><Ativos /></RotaProtegida>} />
-        <Route path="/ativos/cadastro" element={<RotaProtegida><Ativos /></RotaProtegida>} />
-        <Route path="/ativos/edicao" element={<RotaProtegida><Ativos /></RotaProtegida>} />
+        <Route path="/usuarios/:id" element={<RotaProtegida perfis={['ADMIN']}><CadastroUsuario /></RotaProtegida>} />
+        <Route path="/ativos" element={<RotaProtegida perfis={['ADMIN', 'DIRECTOR']}><Ativos /></RotaProtegida>} />
+        <Route path="/ativos/cadastro" element={<RotaProtegida perfis={['ADMIN']}><Ativos /></RotaProtegida>} />
+        <Route path="/ativos/edicao" element={<RotaProtegida perfis={['ADMIN']}><Ativos /></RotaProtegida>} />
         <Route path="/chamados" element={<RotaProtegida><Chamados /></RotaProtegida>} />
-        <Route path="/documentacao" element={<RotaProtegida><Documentacao /></RotaProtegida>} />
-        <Route path="/documentacao/cadastro" element={<RotaProtegida><Documentacao /></RotaProtegida>} />
-        <Route path="/documentacao/edicao" element={<RotaProtegida><Documentacao /></RotaProtegida>} />
+        <Route path="/documentacao" element={<RotaProtegida perfis={['ADMIN', 'DIRECTOR']}><Documentacao /></RotaProtegida>} />
+        <Route path="/documentacao/cadastro" element={<RotaProtegida perfis={['ADMIN']}><Documentacao /></RotaProtegida>} />
+        <Route path="/documentacao/edicao" element={<RotaProtegida perfis={['ADMIN']}><Documentacao /></RotaProtegida>} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </AuthProvider>

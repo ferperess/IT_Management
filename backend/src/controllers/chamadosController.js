@@ -23,7 +23,7 @@ const include = {
 
 function apresentarChamado(chamado, usuario) {
   const resposta = comSla(chamado);
-  if (usuario?.perfil !== 'COMUM') return resposta;
+  if (usuario?.perfil !== 'USER') return resposta;
   delete resposta.sla;
   delete resposta.prazo_atendimento_em;
   delete resposta.prazo_resolucao_em;
@@ -35,7 +35,7 @@ function apresentarChamado(chamado, usuario) {
 async function listar_chamados(req, res) {
   try {
     const { perfil, id } = req.usuario;
-    const where = perfil === 'COMUM' ? { id_solicitante: id } : {};
+    const where = perfil === 'USER' ? { id_solicitante: id } : {};
     const chamados = await prisma.cHAMADOS.findMany({ where, include: { aberto_por: include.aberto_por, solicitante: include.solicitante, local: include.local, ativo: include.ativo, tecnico: include.tecnico, pausas_sla: include.pausas_sla }, orderBy: { criado_em: 'desc' } });
     res.json(chamados.map(chamado => apresentarChamado(chamado, req.usuario)));
   } catch (err) {
@@ -48,7 +48,7 @@ async function buscarPorId(req, res) {
   try {
     const c = await prisma.cHAMADOS.findUnique({ where: { id: toId(req.params.id) }, include });
     if (!c) return res.status(404).json({ erro: 'Chamado não encontrado.' });
-    if (req.usuario.perfil === 'COMUM' && c.id_solicitante !== req.usuario.id) {
+    if (req.usuario.perfil === 'USER' && c.id_solicitante !== req.usuario.id) {
       return res.status(403).json({ erro: 'Acesso negado.' });
     }
     res.json(apresentarChamado(c, req.usuario));
@@ -139,7 +139,7 @@ async function criar_chamado(req, res) {
 
 async function atualizar_chamado(req, res) {
   try {
-    if (!['ADMIN', 'TECNICO'].includes(req.usuario.perfil)) return res.status(403).json({ erro: 'Acesso negado.' });
+    if (req.usuario.perfil !== 'ADMIN') return res.status(403).json({ erro: 'Acesso negado.' });
     const id = toId(req.params.id);
     const { prioridade, categoria, id_tecnico, comentario, ids_documentacoes } = req.body;
     let { status, motivo_espera } = req.body;
@@ -160,7 +160,7 @@ async function atualizar_chamado(req, res) {
       if (categoria && !CATEGORIAS_VALIDAS.includes(categoria)) throw falha(400, 'Categoria inválida.');
       if (id_tecnico) {
         const tecnico = await tx.uSUARIOS.findUnique({ where: { id: toId(id_tecnico) } });
-        if (!tecnico || !['TECNICO', 'ADMIN'].includes(tecnico.perfil) || tecnico.status !== 'ATIVO') throw falha(400, 'Selecione um técnico ou administrador ativo.');
+        if (!tecnico || !['DIRECTOR', 'ADMIN'].includes(tecnico.perfil) || tecnico.status !== 'ATIVO') throw falha(400, 'Selecione um usuário Director ou administrador ativo.');
       }
       const agora = new Date();
       const data = {};
@@ -244,7 +244,7 @@ async function responderConfirmacao(req, res) {
 async function dashboard(req, res) {
   try {
     const { perfil, id } = req.usuario;
-    const filtroSolicitante = perfil === 'COMUM' ? { id_solicitante: id } : {};
+    const filtroSolicitante = perfil === 'USER' ? { id_solicitante: id } : {};
     const [abertos, andamento, concluidos, totalAtivos, aguardando, chamadosSla] = await Promise.all([
       prisma.cHAMADOS.count({ where: { status: 'ABERTO', ...filtroSolicitante } }),
       prisma.cHAMADOS.count({ where: { status: 'EM_ANDAMENTO', ...filtroSolicitante } }),

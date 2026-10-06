@@ -69,7 +69,7 @@ describe('chamadosController: listar', () => {
       prazo_atendimento_em: new Date(), prazo_resolucao_em: new Date(),
       pausas_sla: [{ iniciado_em: new Date(), encerrado_em: null }],
     }]);
-    const req = { usuario: { perfil: 'COMUM', id: 1n } };
+    const req = { usuario: { perfil: 'USER', id: 1n } };
     const res = mockRes();
 
     await listar(req, res);
@@ -114,7 +114,7 @@ describe('chamadosController: buscarPorId', () => {
       pausas_sla: [{ iniciado_em: new Date(), encerrado_em: null }],
       documentos_vinculados: [{ documentacao: { id: 2n, titulo: 'Manual', arquivo_nome: 'manual.pdf' } }],
     });
-    const req = { params: { id: '1' }, usuario: { perfil: 'COMUM', id: 1n } };
+    const req = { params: { id: '1' }, usuario: { perfil: 'USER', id: 1n } };
     const res = mockRes();
 
     await buscarPorId(req, res);
@@ -125,6 +125,21 @@ describe('chamadosController: buscarPorId', () => {
     expect(chamado).not.toHaveProperty('prazo_resolucao_em');
     expect(chamado).not.toHaveProperty('pausas_sla');
     expect(chamado).not.toHaveProperty('documentos_vinculados');
+  });
+
+  test('perfil intermediário consulta todos os chamados com os dados completos', async () => {
+    const chamado = {
+      id: 2, titulo: 'Chamado de outra pessoa', status: 'ABERTO', criado_em: new Date(),
+      prazo_atendimento_em: new Date(), prazo_resolucao_em: new Date(), pausas_sla: [],
+    };
+    prisma.cHAMADOS.findMany.mockResolvedValue([chamado]);
+    const req = { usuario: { perfil: 'DIRECTOR', id: 9n } };
+    const res = mockRes();
+
+    await listar(req, res);
+
+    expect(prisma.cHAMADOS.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
+    expect(res.json.mock.calls[0][0][0]).toHaveProperty('sla');
   });
 
   test('deve retornar 404 se não encontrar', async () => {
@@ -266,7 +281,7 @@ describe('abertura em nome de outra pessoa', () => {
     expect(prisma.cHAMADOS.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ id_local: 2n, id_solicitante: 2n, id_aberto_por: 1n }) }));
     expect(prisma.hISTORICO_CHAMADOS.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ id_usuario: 1n, comentario: 'Chamado aberto por Admin Ana em nome de Bruno.' }) }));
   });
-  test.each(['TECNICO', 'COMUM'])('bloqueia perfil %s mesmo enviando solicitante diretamente à API', async perfil => {
+  test.each(['DIRECTOR', 'USER'])('bloqueia perfil %s mesmo enviando solicitante diretamente à API', async perfil => {
     const res = mockRes();
     await criar(request(perfil), res);
     expect(res.status).toHaveBeenCalledWith(403);
@@ -286,7 +301,7 @@ describe('abertura em nome de outra pessoa', () => {
     expect(prisma.cHAMADOS.create).not.toHaveBeenCalled();
   });
   test('abertura comum continua em nome do próprio usuário', async () => {
-    const req = request('COMUM');
+    const req = request('USER');
     delete req.body.id_solicitante;
     const res = mockRes();
     await criar(req, res);
@@ -365,12 +380,12 @@ describe('chamadosController: dashboard', () => {
     });
   });
 
-  test('deve filtrar dashboard pelo solicitante quando perfil for COMUM', async () => {
+  test('deve filtrar dashboard pelo solicitante quando perfil for USER', async () => {
     prisma.cHAMADOS.count.mockResolvedValue(1);
     prisma.aTIVOS.count.mockResolvedValue(20);
     prisma.cHAMADOS.findMany.mockResolvedValue([]);
 
-    const req = { usuario: { perfil: 'COMUM', id: 7 } };
+    const req = { usuario: { perfil: 'USER', id: 7 } };
     const res = mockRes();
 
     await dashboard(req, res);

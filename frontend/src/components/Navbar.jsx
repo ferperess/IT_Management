@@ -47,7 +47,7 @@ export default function Navbar() {
               </NavLink>
             </li>
           )}
-          {usuario?.perfil !== 'COMUM' && (
+          {['ADMIN', 'DIRECTOR'].includes(usuario?.perfil) && (
           <li>
             <NavLink to="/ativos" className={({ isActive }) => isActive ? 'active' : ''}>
               Ativos
@@ -59,7 +59,7 @@ export default function Navbar() {
               Chamados
             </NavLink>
           </li>
-          {usuario?.perfil !== 'COMUM' && (
+          {['ADMIN', 'DIRECTOR'].includes(usuario?.perfil) && (
           <li>
             <NavLink to="/documentacao" className={({ isActive }) => isActive ? 'active' : ''}>
               Documentação

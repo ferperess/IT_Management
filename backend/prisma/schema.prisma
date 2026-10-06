@@ -13,7 +13,7 @@ model USUARIOS {
   email      String   @unique @db.VarChar
   username   String   @unique @db.VarChar
   senha_hash String @db.VarChar
-  perfil     String   @default("COMUM") @db.VarChar // COMUM | TECNICO | ADMIN
+  perfil     String   @default("USER") @db.VarChar // USER | DIRECTOR | ADMIN
   status     String   @default("ATIVO") @db.VarChar // ATIVO | INATIVO
   criado_em  DateTime @default(now()) @db.Timestamptz(6)
 

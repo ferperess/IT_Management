@@ -1,20 +1,25 @@
 import { createContext, useContext, useState } from 'react';
 
 const AuthContext = createContext(null);
+const perfisLegados = { GERAL: 'ADMIN', INTERMEDIARIO: 'DIRECTOR', BAIXO: 'USER', TECNICO: 'DIRECTOR', COMUM: 'USER' };
+const normalizarUsuario = usuario => usuario && ({
+  ...usuario,
+  id: String(usuario.id),
+  perfil: perfisLegados[usuario.perfil] || usuario.perfil,
+});
 
 export function AuthProvider({ children }) {
   const [usuario, setUsuario] = useState(() => {
     const s = localStorage.getItem('usuario');
     if (!s) return null;
     try {
-      const salvo = JSON.parse(s);
-      return salvo ? { ...salvo, id: String(salvo.id) } : null;
+      return normalizarUsuario(JSON.parse(s));
     } catch { return null; }
   });
   const [token, setToken] = useState(() => localStorage.getItem('token') || null);
 
   function login(data) {
-    data = { ...data, usuario: { ...data.usuario, id: String(data.usuario.id) } };
+    data = { ...data, usuario: normalizarUsuario(data.usuario) };
     setToken(data.token);
     setUsuario(data.usuario);
     localStorage.setItem('token', data.token);

@@ -4,7 +4,9 @@
 
 Antes de iniciar esta versão, aplique `backend/sql/chamados_em_nome_de.sql` no Supabase e execute `npx prisma generate` no backend. O script adiciona somente `CHAMADOS.id_aberto_por` e sua chave estrangeira para `USUARIOS`; registros anteriores permanecem sem autoria presumida.
 
-Na tela de chamados, administradores podem selecionar outro usuário ativo como solicitante. A API valida o perfil, mantém o autor autenticado em `id_aberto_por` e registra “Chamado aberto por X em nome de Y” no histórico. A autoria também aparece na lista, Kanban e detalhes. A visibilidade do usuário comum e a confirmação de encerramento continuam vinculadas ao solicitante selecionado.
+Na tela de chamados, usuários do perfil Geral podem selecionar outra pessoa ativa como solicitante. A API valida o perfil, mantém o autor autenticado em `id_aberto_por` e registra “Chamado aberto por X em nome de Y” no histórico. A autoria também aparece na lista, Kanban e detalhes. A visibilidade do perfil Baixo e a confirmação de encerramento continuam vinculadas ao solicitante selecionado.
+
+Para migrar os perfis existentes no Supabase, execute `backend/sql/migrar_perfis_acesso.sql`. Ele converte `GERAL` para `ADMIN`, `INTERMEDIARIO`/`TECNICO` para `DIRECTOR` e `BAIXO`/`COMUM` para `USER`, e atualiza o padrão de novos usuários. O script também aceita os perfis já no formato novo.
 
 Aplicação web para gerenciamento de chamados de TI, ativos, locais e documentação, com autenticação por perfil e acompanhamento de SLA.
 
@@ -84,7 +86,9 @@ Não há usuário de demonstração criado pelo repositório. Use uma conta prov
 
 - Chamados classificados pelo OpenRouter, histórico, confirmação de encerramento e SLA em horas corridas. Prazos atendimento/resolução: Baixa `24h/120h`, Média `8h/24h`, Alta `1h/8h`, Crítica `15min/4h`; a espera do usuário pausa a resolução.
 - Gestão de ativos, patrimônio, locais e documentação com arquivos ou links; documentação pode ser vinculada a ativos e chamados.
-- `COMUM`: abre e consulta os próprios chamados, sem prazos SLA ou documentos vinculados no detalhe. `TECNICO`: gerencia chamados/ativos/documentação e vê relatórios. `ADMIN`: também administra usuários e remove registros.
+- `USER`: equivalente ao antigo `COMUM`; abre e consulta os próprios chamados, sem prazos SLA ou documentos vinculados no detalhe.
+- `DIRECTOR`: consulta todos os chamados, ativos e documentação sem editar; pode abrir chamados e acessar o dashboard e relatórios completos. Não acessa usuários.
+- `ADMIN`: acesso completo ao sistema, incluindo edição/remoção e administração de usuários.
 
 ---
 
@@ -153,8 +157,8 @@ IT_Management/
 ## Endpoints da API
 
 - Autenticação e dashboard: `POST /api/auth/login`, `GET /api/dashboard`.
-- Chamados: `GET/POST /api/chamados`, `GET /api/chamados/:id`, `PUT /api/chamados/:id`; leitura é autenticada, `COMUM` vê apenas os próprios, edição exige `TECNICO` ou `ADMIN`.
-- Confirmação: `POST /api/chamados/:id/confirmacao`, somente pelo solicitante do chamado.
-- Ativos e locais: leitura autenticada; criar/editar ativos exige `TECNICO` ou `ADMIN`, remover exige `ADMIN`. `GET /api/locais` lista locais ativos.
-- Documentação: leitura e download autenticados; criar/editar exige `TECNICO` ou `ADMIN`, remover exige `ADMIN`.
-- Usuários: administração exclusiva de `ADMIN`. Relatórios: `TECNICO` ou `ADMIN`.
+- Chamados: `GET/POST /api/chamados`, `GET /api/chamados/:id`, `PUT /api/chamados/:id`; `USER` vê apenas os próprios, `DIRECTOR` consulta todos, e somente `ADMIN` edita.
+- Confirmação: `POST /api/chamados/:id/confirmacao`, somente pelo solicitante do chamado nos perfis `USER` e `ADMIN`.
+- Ativos e locais: leitura autenticada; cadastro, edição e remoção de ativos exigem `ADMIN`. `GET /api/locais` lista locais ativos.
+- Documentação: leitura e download disponíveis para `ADMIN` e `DIRECTOR`; alterações exigem `ADMIN`.
+- Usuários: administração exclusiva de `ADMIN`. Relatórios: `DIRECTOR` ou `ADMIN`.

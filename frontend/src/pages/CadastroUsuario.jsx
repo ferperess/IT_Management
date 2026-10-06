@@ -12,7 +12,7 @@ export default function CadastroUsuario() {
   const isEdicao = location.pathname === '/usuarios/edicao' || Boolean(id);
 
   const [form, setForm] = useState({
-    nome: '', email: '', username: '', senha: '', perfil: 'COMUM', status: 'ATIVO',
+    nome: '', email: '', username: '', senha: '', perfil: 'USER', status: 'ATIVO',
   });
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
@@ -47,7 +47,7 @@ export default function CadastroUsuario() {
       } else {
         await api.post('/usuarios', payload);
         setSucesso('Usuário cadastrado com sucesso!');
-        setForm({ nome: '', email: '', username: '', senha: '', perfil: 'COMUM', status: 'ATIVO' });
+        setForm({ nome: '', email: '', username: '', senha: '', perfil: 'USER', status: 'ATIVO' });
       }
     } catch (err) {
       setErro(err.response?.data?.erro || 'Erro ao salvar usuário.');
@@ -88,9 +88,9 @@ export default function CadastroUsuario() {
               <div className="form-group">
                 <label htmlFor="cadastrousuario-campo-5">Perfil de Acesso</label>
                 <select id="cadastrousuario-campo-5" className="form-control" value={form.perfil} onChange={set('perfil')}>
-                  <option value="COMUM">Comum</option>
-                  <option value="TECNICO">Técnico de TI</option>
-                  <option value="ADMIN">Administrador</option>
+                  <option value="USER">User</option>
+                  <option value="DIRECTOR">Director</option>
+                  <option value="ADMIN">Admin</option>
                 </select>
               </div>
               <div className="form-group">

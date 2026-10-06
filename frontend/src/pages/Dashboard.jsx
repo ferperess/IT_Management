@@ -20,7 +20,7 @@ const formatarHoras = horas => horas == null ? '—' : `${horas.toLocaleString('
 export default function Dashboard() {
   const { usuario } = useAuth();
   const navigate = useNavigate();
-  const podeVerRelatorios = ['ADMIN', 'TECNICO'].includes(usuario?.perfil);
+  const podeVerRelatorios = ['ADMIN', 'DIRECTOR'].includes(usuario?.perfil);
   const abrirFormularioChamado = () => navigate('/chamados', { state: { abrirNovoChamado: true } });
 
   const [stats, setStats] = useState({ abertos: 0, andamento: 0, totalAtivos: 0, aguardando: 0, tempoMedioAtendimentoHoras: null, tempoMedioResolucaoHoras: null });
@@ -113,7 +113,7 @@ export default function Dashboard() {
           <button className="btn btn-primary dashboard-new-ticket" onClick={abrirFormularioChamado}>+ Abrir Novo Chamado</button>
         )}
 
-        {/* Relatórios gerenciais — apenas Admin e Técnico */}
+        {/* Relatórios gerenciais — perfis Admin e Director */}
         {podeVerRelatorios && (
           <div className="card-box reports-panel">
             <div className="page-header">

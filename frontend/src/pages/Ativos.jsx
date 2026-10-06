@@ -27,7 +27,7 @@ const filtrosVazios = { id_local: '', tipo: '', status: '' };
 
 export default function Ativos() {
   const { usuario } = useAuth();
-  const podeEditar = ['ADMIN', 'TECNICO'].includes(usuario?.perfil);
+  const podeEditar = usuario?.perfil === 'ADMIN';
 
   const [ativos, setAtivos] = useState([]);
   const [ativoInativar, setAtivoInativar] = useState(null);

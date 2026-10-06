@@ -21,7 +21,7 @@ function validarLinkExterno(valor) {
 
 export default function Documentacao() {
   const { usuario } = useAuth();
-  const podeEditar = ['ADMIN', 'TECNICO'].includes(usuario?.perfil);
+  const podeEditar = usuario?.perfil === 'ADMIN';
 
   const [docs, setDocs] = useState([]);
   const [carregandoLista, setCarregandoLista] = useState(true);

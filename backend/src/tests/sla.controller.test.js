@@ -12,7 +12,7 @@ const { atualizar, responderConfirmacao } = require('../controllers/chamadosCont
 const { validarTransicaoStatus } = require('../validators');
 let row;
 const res = () => ({ status: jest.fn().mockReturnThis(), json: jest.fn().mockReturnThis() });
-async function update(body, perfil = 'TECNICO') {
+async function update(body, perfil = 'ADMIN') {
   const response = res();
   await atualizar({ params: { id: '1' }, body, usuario: { id: 2n, perfil } }, response);
   return response;
@@ -69,8 +69,12 @@ test('atualiza vários vínculos e permite limpar todos', async () => {
   await update({ ids_documentacoes: [] });
   expect(prisma.cHAMADOS_DOCUMENTACOES.deleteMany).toHaveBeenCalledTimes(2);
 });
-test('usuário comum não altera SLA ou vínculos', async () => {
-  const r = await update({ status: 'EM_ANDAMENTO' }, 'COMUM'); expect(r.status).toHaveBeenCalledWith(403); expect(prisma.$transaction).not.toHaveBeenCalled();
+test('perfis sem permissão não alteram SLA ou vínculos', async () => {
+  for (const perfil of ['DIRECTOR', 'USER']) {
+    const r = await update({ status: 'EM_ANDAMENTO' }, perfil);
+    expect(r.status).toHaveBeenCalledWith(403);
+  }
+  expect(prisma.$transaction).not.toHaveBeenCalled();
 });
 test('transições exigem atendimento antes da espera e retomada antes de concluir', () => {
   expect(validarTransicaoStatus('ABERTO', 'AGUARDANDO_USUARIO')).toBe(false);
@@ -79,7 +83,7 @@ test('transições exigem atendimento antes da espera e retomada antes de conclu
 });
 
 describe('confirmação do solicitante', () => {
-  async function responder(confirmar, id = 3n, perfil = 'COMUM') {
+  async function responder(confirmar, id = 3n, perfil = 'USER') {
     const response = res();
     await responderConfirmacao({ params: { id: '1' }, body: { confirmar }, usuario: { id, perfil } }, response);
     return response;
@@ -97,7 +101,7 @@ describe('confirmação do solicitante', () => {
     expect(r.status).toHaveBeenCalledWith(400);
     expect(row.status).toBe('AGUARDANDO_USUARIO');
   });
-  test.each(['COMUM', 'TECNICO', 'ADMIN'])('outro usuário %s não confirma', async perfil => {
+  test.each(['USER', 'DIRECTOR', 'ADMIN'])('outro usuário %s não confirma', async perfil => {
     await update({ status: 'CONCLUIDO' });
     const r = await responder(true, 9n, perfil);
     expect(r.status).toHaveBeenCalledWith(403);

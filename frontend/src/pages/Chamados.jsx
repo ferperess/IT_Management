@@ -34,8 +34,9 @@ export default function Chamados() {
   const { usuario } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const podeGerenciar = ['ADMIN', 'TECNICO'].includes(usuario?.perfil);
-  const [vista, setVista] = useState(() => podeGerenciar ? 'kanban' : 'lista');
+  const podeVerTodosChamados = ['ADMIN', 'DIRECTOR'].includes(usuario?.perfil);
+  const podeEditarChamados = usuario?.perfil === 'ADMIN';
+  const [vista, setVista] = useState(() => podeVerTodosChamados ? 'kanban' : 'lista');
   const [chamados, setChamados] = useState([]);
   const [statusMobile, setStatusMobile] = useState('ABERTO');
   const [ativos, setAtivos] = useState([]);
@@ -86,7 +87,7 @@ export default function Chamados() {
         api.get('/ativos'),
         api.get('/locais'),
         usuario?.perfil === 'ADMIN' ? api.get('/usuarios') : Promise.resolve({ data: [] }),
-        podeGerenciar ? api.get('/documentacoes') : Promise.resolve({ data: [] }),
+        podeVerTodosChamados ? api.get('/documentacoes') : Promise.resolve({ data: [] }),
       ]);
       if (!ativo) return;
       if (resultados[0].status === 'fulfilled') setAtivos(resultados[0].value.data);
@@ -94,7 +95,7 @@ export default function Chamados() {
       else setErroLocais('Não foi possível carregar as localizações.');
       setCarregandoLocais(false);
       if (resultados[2].status === 'fulfilled') {
-        setTecnicos(resultados[2].value.data.filter(u => ['ADMIN', 'TECNICO'].includes(u.perfil) && u.status === 'ATIVO'));
+        setTecnicos(resultados[2].value.data.filter(u => ['ADMIN', 'DIRECTOR'].includes(u.perfil) && u.status === 'ATIVO'));
         setSolicitantes(resultados[2].value.data.filter(u => u.status === 'ATIVO' && String(u.id) !== String(usuario.id)));
       }
       if (resultados[3].status === 'fulfilled') setDocumentos(resultados[3].value.data);
@@ -106,7 +107,7 @@ export default function Chamados() {
     }
     carregarAuxiliares();
     return () => { ativo = false; };
-  }, [usuario?.perfil]);
+  }, [usuario?.perfil, podeVerTodosChamados]);
   async function carregarLocais() {
     setCarregandoLocais(true);
     setErroLocais('');
@@ -231,7 +232,7 @@ export default function Chamados() {
   });
 
   return <><Navbar /><main className="chamados-page">
-    <div className="ch-heading"><div><p className="ch-eyebrow">CENTRAL DE ATENDIMENTO</p><h1>Chamados</h1><p className="ch-muted">{podeGerenciar ? 'Organize os atendimentos e acompanhe cada etapa.' : 'Abra uma solicitação e acompanhe seus atendimentos.'}</p></div>
+    <div className="ch-heading"><div><p className="ch-eyebrow">CENTRAL DE ATENDIMENTO</p><h1>Chamados</h1><p className="ch-muted">{podeVerTodosChamados ? 'Consulte todos os atendimentos e acompanhe cada etapa.' : 'Abra uma solicitação e acompanhe seus atendimentos.'}</p></div>
       <button ref={novoBotao} className="btn btn-primary" aria-expanded={formAberto} aria-controls="ch-novo" disabled={criando} onClick={() => setFormAberto(v => !v)}>{formAberto ? 'Recolher formulário' : '+ Novo chamado'}</button></div>
     {mensagem && <div className="alert alert-sucesso" role="status">{mensagem}</div>}
     {avisoClassificacao && <div className="ch-notice" role="alert">{avisoClassificacao}</div>}
@@ -297,9 +298,9 @@ export default function Chamados() {
         <SlaChamado chamado={detalhe} />
         <AutoriaChamado chamado={detalhe} />
         <p className="ch-muted">Confirmação do solicitante: {detalhe.exige_confirmacao ? 'obrigatória para encerrar' : 'não exigida'}.</p><br></br>
-        {detalhe.confirmacao_pendente && <section className="ch-notice" aria-label="Confirmação de encerramento"><p>A equipe técnica solicitou o encerramento. Aguardando confirmação do solicitante.</p>{String(detalhe.id_solicitante) === String(usuario.id) && <div className="ch-actions"><button type="button" className="btn btn-primary" disabled={salvando} onClick={() => responderConfirmacao(true)}>Confirmar solução e encerrar</button><button type="button" className="btn btn-secondary" disabled={salvando} onClick={() => responderConfirmacao(false)}>Não foi resolvido — retomar atendimento</button></div>}</section>}
-        {podeGerenciar && <section className="related-docs"><h3>Documentações relacionadas</h3>{detalhe.documentos_vinculados?.length ? <ul>{detalhe.documentos_vinculados.map(({ documentacao: doc }) => <li key={doc.id}><details><summary>{doc.titulo}</summary><p>{doc.descricao || 'Sem descrição.'}</p>{/^https?:\/\//i.test(doc.link_externo || '') && <a href={doc.link_externo} target="_blank" rel="noopener noreferrer">Abrir link externo</a>}{doc.arquivo_nome && <button type="button" className="btn btn-secondary" disabled={baixandoDoc === doc.id} onClick={() => baixarDocumento(doc)}>{baixandoDoc === doc.id ? 'Baixando…' : `Baixar ${doc.arquivo_nome}`}</button>}</details></li>)}</ul> : <p>Nenhuma documentação vinculada.</p>}</section>}
-        {podeGerenciar && !['CONCLUIDO', 'CANCELADO'].includes(detalhe.status) && <form className="ch-management" onSubmit={atualizar}><h3>Gestão técnica</h3><fieldset disabled={salvando}><div className="ch-form-grid">
+        {detalhe.confirmacao_pendente && <section className="ch-notice" aria-label="Confirmação de encerramento"><p>A equipe técnica solicitou o encerramento. Aguardando confirmação do solicitante.</p>{usuario?.perfil !== 'DIRECTOR' && String(detalhe.id_solicitante) === String(usuario.id) && <div className="ch-actions"><button type="button" className="btn btn-primary" disabled={salvando} onClick={() => responderConfirmacao(true)}>Confirmar solução e encerrar</button><button type="button" className="btn btn-secondary" disabled={salvando} onClick={() => responderConfirmacao(false)}>Não foi resolvido — retomar atendimento</button></div>}</section>}
+        {podeVerTodosChamados && <section className="related-docs"><h3>Documentações relacionadas</h3>{detalhe.documentos_vinculados?.length ? <ul>{detalhe.documentos_vinculados.map(({ documentacao: doc }) => <li key={doc.id}><details><summary>{doc.titulo}</summary><p>{doc.descricao || 'Sem descrição.'}</p>{/^https?:\/\//i.test(doc.link_externo || '') && <a href={doc.link_externo} target="_blank" rel="noopener noreferrer">Abrir link externo</a>}{doc.arquivo_nome && <button type="button" className="btn btn-secondary" disabled={baixandoDoc === doc.id} onClick={() => baixarDocumento(doc)}>{baixandoDoc === doc.id ? 'Baixando…' : `Baixar ${doc.arquivo_nome}`}</button>}</details></li>)}</ul> : <p>Nenhuma documentação vinculada.</p>}</section>}
+        {podeEditarChamados && !['CONCLUIDO', 'CANCELADO'].includes(detalhe.status) && <form className="ch-management" onSubmit={atualizar}><h3>Gestão técnica</h3><fieldset disabled={salvando}><div className="ch-form-grid">
           <Campo id="ch-editar-status" label="Status"><select id="ch-editar-status" className="form-control" value={gestao.status} onChange={mudarGestao('status')}>{[detalhe.status, ...(transicoes[detalhe.status] || [])].map(s => <option key={s} value={s}>{s === 'CONCLUIDO' && detalhe.exige_confirmacao ? 'Solicitar confirmação de encerramento' : statusLabel[s]}</option>)}</select></Campo>
           <Campo id="ch-editar-prioridade" label="Prioridade"><select id="ch-editar-prioridade" className="form-control" value={gestao.prioridade} onChange={mudarGestao('prioridade')}><Opcoes items={prioLabel} /></select></Campo>
           <Campo id="ch-editar-categoria" label="Categoria"><select id="ch-editar-categoria" className="form-control" value={gestao.categoria} onChange={mudarGestao('categoria')}><Opcoes items={categorias} /></select></Campo>

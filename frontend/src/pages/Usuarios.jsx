@@ -38,7 +38,7 @@ export default function Usuarios() {
     setUsuarioInativar(null);
   }
 
-  const perfilLabel = { ADMIN: 'Administrador', TECNICO: 'Técnico de TI', COMUM: 'Comum' };
+  const perfilLabel = { ADMIN: 'Admin', DIRECTOR: 'Director', USER: 'User' };
 
   return (
     <>

@@ -107,7 +107,7 @@ describe('authController: login', () => {
 
 describe('migração Argon2id', () => {
   const { hashPassword, verifyPassword } = require('../utils/passwords');
-  const user = { id: 9n, nome: 'Teste', email: 'teste@example.com', perfil: 'COMUM', status: 'ATIVO' };
+  const user = { id: 9n, nome: 'Teste', email: 'teste@example.com', perfil: 'USER', status: 'ATIVO' };
   beforeEach(() => { jest.clearAllMocks(); prisma.uSUARIOS.updateMany.mockResolvedValue({ count: 1 }); });
   test('migra bcrypt com condição de concorrência sem expor hash na resposta', async () => {
     const oldHash = await bcrypt.hash('senha123', 10);

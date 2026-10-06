@@ -83,7 +83,7 @@ describe('usuariosController: criar', () => {
   });
 
   test('deve criar usuário com dados válidos', async () => {
-    const novoUsuario = { id: 1, nome: 'Fer', email: 'fer@teste.com', username: 'fer', perfil: 'COMUM', status: 'ATIVO' };
+    const novoUsuario = { id: 1, nome: 'Fer', email: 'fer@teste.com', username: 'fer', perfil: 'USER', status: 'ATIVO' };
     prisma.uSUARIOS.create.mockResolvedValue(novoUsuario);
     const req = { body: { nome: 'Fer', email: 'fer@teste.com', username: 'fer', senha: '123456' } };
     const res = mockRes();
@@ -110,7 +110,7 @@ describe('usuariosController: atualizar', () => {
   beforeEach(() => jest.clearAllMocks());
 
   test('deve atualizar usuário com dados válidos', async () => {
-    const atualizado = { id: 1, nome: 'Novo Nome', email: 'novo@teste.com', username: 'novo', perfil: 'COMUM', status: 'ATIVO' };
+    const atualizado = { id: 1, nome: 'Novo Nome', email: 'novo@teste.com', username: 'novo', perfil: 'USER', status: 'ATIVO' };
     prisma.uSUARIOS.update.mockResolvedValue(atualizado);
     const req = { params: { id: '1' }, body: { nome: 'Novo Nome', email: 'novo@teste.com', username: 'novo' } };
     const res = mockRes();

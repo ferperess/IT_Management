@@ -79,7 +79,7 @@ async function criar_usuario(req, res) {
 
     const hash = await hashPassword(senha);
     const u = await prisma.uSUARIOS.create({
-      data: { nome, email, username, senha_hash: hash, perfil: perfil || 'COMUM', status: status || 'ATIVO' },
+      data: { nome, email, username, senha_hash: hash, perfil: perfil || 'USER', status: status || 'ATIVO' },
       select: { id: true, nome: true, email: true, username: true, perfil: true, status: true },
     });
     res.status(201).json(u);
