@@ -70,6 +70,7 @@ main { padding: 30px; max-width: 1200px; margin: 0 auto; }
     border: none;
 }
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.page-header h1 { font-size: 24px; }
 
 /* Controles funcionais: estados explícitos, sem depender de sombras. */
 .btn {
@@ -497,7 +498,15 @@ textarea.form-control { resize: vertical; }
   main, .chamados-page { padding: 20px 12px; }
   .card-box, .quick-actions, .chamados-page .card-box { padding: 16px; }
   .page-header { align-items: stretch; flex-direction: column; }
-  .page-header h2 { font-size: 21px; }
+  .page-header h1, .page-header h2 { font-size: 21px; }
+  .table-scroll:has(.cps-table-stack) { overflow-x: visible; border-bottom: 0; }
+  .table-scroll .cps-table-stack { min-width: 0; }
+  .cps-table-stack thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .cps-table-stack, .cps-table-stack tbody, .cps-table-stack tr, .cps-table-stack td { display: block; width: 100%; }
+  .cps-table-stack tr { padding: 10px 0; border-bottom: 2px solid #cdd5df; }
+  .cps-table-stack td { display: grid; grid-template-columns: minmax(96px, 36%) minmax(0, 1fr); gap: 8px; padding: 6px 4px; border: 0; overflow-wrap: anywhere; }
+  .cps-table-stack td[data-label]::before { content: attr(data-label); font-weight: bold; color: #344154; }
+  .cps-table-stack td.table-empty-state { display: block; }
   .document-list-actions { width: 100%; align-items: stretch; flex-direction: column; }
   .document-list-actions > .btn { width: 100%; }
   .form-row { flex-direction: column; gap: 0; }

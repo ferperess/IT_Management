@@ -20,8 +20,9 @@ router.get('/usuarios/:id', autenticar, apenasAdmin, usuariosCtrl.buscarPorId);
 router.post('/usuarios', autenticar, apenasAdmin, usuariosCtrl.criar);
 router.put('/usuarios/:id', autenticar, apenasAdmin, usuariosCtrl.atualizar);
 router.patch('/usuarios/:id/inativar', autenticar, apenasAdmin, usuariosCtrl.inativar);
+router.patch('/usuarios/:id/reativar', autenticar, apenasAdmin, usuariosCtrl.reativar);
 
-router.get('/ativos', autenticar, ativosCtrl.listar);
+router.get('/ativos', autenticar, apenasAdminOuDirector, ativosCtrl.listar);
 router.get('/ativos/:id/historico', autenticar, apenasAdminOuDirector, ativosCtrl.historico);
 router.get('/locais', autenticar, locaisCtrl.listar);
 router.post('/ativos', autenticar, apenasAdmin, ativosCtrl.criar);

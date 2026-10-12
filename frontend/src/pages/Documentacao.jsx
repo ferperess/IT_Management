@@ -291,7 +291,7 @@ export default function Documentacao() {
         )}
         <div className="card-box" hidden={mostrarForm}>
           <div className="page-header">
-            <h2>Base de Conhecimento / Documentação</h2>
+            <h1>Base de Conhecimento / Documentação</h1>
             <div className="document-list-actions">
               {podeEditar && (
                 <button ref={formBotao} className="btn btn-primary" aria-expanded={mostrarForm} aria-controls="documentacao-formulario" onClick={() => mostrarForm ? fecharForm() : novoForm()}>
@@ -335,18 +335,18 @@ export default function Documentacao() {
             <p role="status">{docsFiltrados.length} de {docs.length} documentos</p>
             {haFiltros && <button type="button" className="btn btn-secondary btn-sm" onClick={() => setFiltros(filtrosDocumentacaoVazios)}>Limpar filtros</button>}
           </div>
-          <div className="table-scroll" role="region" aria-label="Tabela de documentos" tabIndex={0}><table className="cps-table">
+          <div className="table-scroll" role="region" aria-label="Tabela de documentos" tabIndex={0}><table className="cps-table cps-table-stack">
             <thead>
               <tr><th>Título</th><th>Ativo Vinculado</th><th>Responsável</th><th>Data Registro</th><th>Ações</th></tr>
             </thead>
             <tbody>
               {docsFiltrados.map(d => (
                 <tr key={d.id}>
-                  <td>{d.titulo}</td>
-                  <td>{d.ativo ? d.ativo.nome : <span className="document-empty-value">—</span>}</td>
-                  <td>{d.responsavel?.nome}</td>
-                  <td>{fmtData(d.criado_em)}</td>
-                  <td>
+                  <td data-label="Título">{d.titulo}</td>
+                  <td data-label="Ativo Vinculado">{d.ativo ? d.ativo.nome : <span className="document-empty-value">—</span>}</td>
+                  <td data-label="Responsável">{d.responsavel?.nome}</td>
+                  <td data-label="Data Registro">{fmtData(d.criado_em)}</td>
+                  <td data-label="Ações">
                     <div className="actions-bar">
                       <button className="btn btn-secondary btn-sm" onClick={() => setLendoDoc(d)}>Ler</button>
                       {d.arquivo_nome && (

@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { autenticar, apenasAdminOuDirector, apenasAdmin, apenasAdminOuUser, SECRET } = require('../middlewares/auth');
+const routes = require('../routes');
 
 
 function mockRes() {
@@ -90,6 +91,19 @@ describe('Middleware: perfis de acesso', () => {
       apenasAdminOuDirector(req, mockRes(), next);
       expect(next).toHaveBeenCalledTimes(1);
     }
+  });
+
+  test('a rota de listagem de ativos exige perfil Admin ou Director', () => {
+    const rotaAtivos = routes.stack.find(layer =>
+      layer.route?.path === '/ativos' && layer.route.methods.get
+    );
+
+    expect(rotaAtivos).toBeDefined();
+    expect(rotaAtivos.route.stack.map(({ handle }) => handle)).toEqual([
+      autenticar,
+      apenasAdminOuDirector,
+      expect.any(Function),
+    ]);
   });
 
   test('Baixo não acessa recursos de consulta avançada', () => {

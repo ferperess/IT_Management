@@ -198,7 +198,7 @@ export default function Ativos() {
       <main>
         <div className="card-box" hidden={mostrarForm}>
           <div className="page-header">
-            <h2>Gestão de Ativos</h2>
+            <h1>Gestão de Ativos</h1>
             <div className="document-list-actions">
               {podeEditar && (
                 <button ref={cadastroBotao} className="btn btn-primary" onClick={novoForm}>+ Cadastrar Ativo</button>
@@ -242,20 +242,20 @@ export default function Ativos() {
             <p role="status">{ativosFiltrados.length} de {ativos.length} ativos</p>
             {haFiltros && <button type="button" className="btn btn-secondary btn-sm" onClick={() => setFiltros(filtrosVazios)}>Limpar filtros</button>}
           </div>
-          <div className="table-scroll" role="region" aria-label="Tabela de ativos" tabIndex={0}><table className="cps-table">
+          <div className="table-scroll" role="region" aria-label="Tabela de ativos" tabIndex={0}><table className="cps-table cps-table-stack">
             <thead>
               <tr><th>Equipamento</th><th>Patrimônio</th><th>Tipo</th><th>Localização</th><th>Status</th>{podeEditar && <th>Ações</th>}</tr>
             </thead>
             <tbody>
               {ativosFiltrados.map(a => (
                 <tr key={a.id}>
-                  <td>{a.nome}</td>
-                  <td>{a.patrimonio || '—'}</td>
-                  <td>{tipoLabel[a.tipo] || a.tipo}</td>
-                  <td>{a.local?.nome || a.localizacao || '—'}{a.local?.status === 'INATIVO' && ' (inativo)'}</td>
-                  <td><span className={`badge badge-${badgeMap[a.status]}`}>{statusLabel[a.status]}</span></td>
+                  <td data-label="Equipamento">{a.nome}</td>
+                  <td data-label="Patrimônio">{a.patrimonio || '—'}</td>
+                  <td data-label="Tipo">{tipoLabel[a.tipo] || a.tipo}</td>
+                  <td data-label="Localização">{a.local?.nome || a.localizacao || '—'}{a.local?.status === 'INATIVO' && ' (inativo)'}</td>
+                  <td data-label="Status"><span className={`badge badge-${badgeMap[a.status]}`}>{statusLabel[a.status]}</span></td>
                   {podeEditar && (
-                    <td>
+                    <td data-label="Ações">
                       <div className="actions-bar">
                         <button className="btn btn-secondary btn-sm" onClick={() => iniciarEdicao(a)}>Editar</button>
                         {usuario?.perfil === 'ADMIN' && (

@@ -82,9 +82,10 @@ export default function Chamados() {
   useEffect(() => {
     carregarLista();
     let ativo = true;
+    const podeConsultarAtivos = ['ADMIN', 'DIRECTOR'].includes(usuario?.perfil);
     async function carregarAuxiliares() {
       const resultados = await Promise.allSettled([
-        api.get('/ativos'),
+        podeConsultarAtivos ? api.get('/ativos') : Promise.resolve({ data: [] }),
         api.get('/locais'),
         usuario?.perfil === 'ADMIN' ? api.get('/usuarios') : Promise.resolve({ data: [] }),
         podeVerTodosChamados ? api.get('/documentacoes') : Promise.resolve({ data: [] }),

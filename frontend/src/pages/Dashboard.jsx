@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
@@ -30,12 +30,26 @@ export default function Dashboard() {
   const [dataFim, setDataFim] = useState(hoje_str);
   const [carregandoRel, setCarregandoRel] = useState(false);
   const [erroRelatorio, setErroRelatorio] = useState('');
+  const [erroResumo, setErroResumo] = useState('');
+  const [carregandoResumo, setCarregandoResumo] = useState(true);
 
   usePageTitle('Home');
 
-  useEffect(() => {
-    api.get('/dashboard').then(r => setStats(r.data)).catch(() => {});
+  const carregarResumo = useCallback(async () => {
+    setErroResumo('');
+    setCarregandoResumo(true);
+    try {
+      const { data } = await api.get('/dashboard');
+      setStats(data);
+    } catch {
+      setErroResumo('Não foi possível carregar o resumo do painel. Os valores abaixo podem estar incompletos.');
+    } finally {
+      setCarregandoResumo(false);
+    }
   }, []);
+
+  useEffect(() => { carregarResumo(); }, [carregarResumo]);
+  const valorResumo = valor => (erroResumo ? '—' : valor);
 
   async function carregarRelatorios(modo = modoPeriodo) {
     setCarregandoRel(true);
@@ -70,30 +84,39 @@ export default function Dashboard() {
           </h1>
         </div>
 
+        {erroResumo && (
+          <div className="alert alert-erro" role="alert">
+            {erroResumo}{' '}
+            <button type="button" className="btn btn-secondary btn-sm" onClick={carregarResumo} disabled={carregandoResumo}>
+              {carregandoResumo ? 'Carregando...' : 'Tentar novamente'}
+            </button>
+          </div>
+        )}
+
         {/* Cards resumo */}
-        <div className="cards-grid dashboard-ticket-cards">
+        <div className="cards-grid dashboard-ticket-cards" aria-busy={carregandoResumo}>
           <div className="card destaque">
             <div className="card-title">Chamados Abertos</div>
-            <div className="card-value">{stats.abertos}</div>
+            <div className="card-value">{valorResumo(stats.abertos)}</div>
           </div>
           <div className="card">
             <div className="card-title">Em Andamento</div>
-            <div className="card-value">{stats.andamento ?? 0}</div>
+            <div className="card-value">{valorResumo(stats.andamento ?? 0)}</div>
           </div>
           <div className="card">
             <div className="card-title">Aguardando usuário</div>
-            <div className="card-value">{stats.aguardando ?? 0}</div>
+            <div className="card-value">{valorResumo(stats.aguardando ?? 0)}</div>
           </div>
         </div>
         {podeVerRelatorios && (
           <div className="cards-grid dashboard-sla-cards">
             <div className="card">
               <div className="card-title">Tempo médio até primeiro atendimento (SLA)</div>
-              <div className="card-value">{formatarHoras(stats.tempoMedioAtendimentoHoras)}</div>
+              <div className="card-value">{erroResumo ? '—' : formatarHoras(stats.tempoMedioAtendimentoHoras)}</div>
             </div>
             <div className="card">
               <div className="card-title">Tempo médio de resolução (SLA)</div>
-              <div className="card-value">{formatarHoras(stats.tempoMedioResolucaoHoras)}</div>
+              <div className="card-value">{erroResumo ? '—' : formatarHoras(stats.tempoMedioResolucaoHoras)}</div>
             </div>
           </div>
         )}

@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 
-export default function ConfirmarInativacao({ titulo, pergunta, identificacao, onConfirmar, onCancelar, focoRetorno }) {
+export default function ConfirmarInativacao({ titulo, pergunta, identificacao, onConfirmar, onCancelar, focoRetorno, rotuloEnvio = 'Inativando…', erroPadrao = 'Não foi possível inativar. Tente novamente.' }) {
   const dialog = useRef(null);
   const trava = useRef(false);
   const [enviando, setEnviando] = useState(false);
@@ -25,7 +25,7 @@ export default function ConfirmarInativacao({ titulo, pergunta, identificacao, o
     if (trava.current) return;
     trava.current = true; setEnviando(true); setErro('');
     try { await onConfirmar(); }
-    catch (err) { setErro(err.response?.data?.erro || 'Não foi possível inativar. Tente novamente.'); }
+    catch (err) { setErro(err.response?.data?.erro || erroPadrao); }
     finally { trava.current = false; setEnviando(false); }
   }
 
@@ -37,7 +37,7 @@ export default function ConfirmarInativacao({ titulo, pergunta, identificacao, o
     {erro && <div className="alert alert-erro" role="alert">{erro}</div>}
     <div className="form-actions">
       <button type="button" className="btn btn-secondary" autoFocus disabled={enviando} onClick={() => { if (!trava.current) onCancelar(); }}>Cancelar</button>
-      <button type="button" className="btn btn-primary" disabled={enviando} onClick={confirmar}>{enviando ? 'Inativando…' : 'Confirmar'}</button>
+      <button type="button" className="btn btn-primary" disabled={enviando} onClick={confirmar}>{enviando ? rotuloEnvio : 'Confirmar'}</button>
     </div>
   </dialog>;
 }

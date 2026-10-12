@@ -11,6 +11,7 @@ export default function Usuarios() {
   const [erroLista, setErroLista] = useState('');
   const [busca, setBusca] = useState('');
   const [usuarioInativar, setUsuarioInativar] = useState(null);
+  const [usuarioReativar, setUsuarioReativar] = useState(null);
   const cadastroBotao = useRef(null);
   const navigate = useNavigate();
   const consultaAtual = useRef(0);
@@ -38,6 +39,12 @@ export default function Usuarios() {
     setUsuarioInativar(null);
   }
 
+  async function reativar() {
+    await api.patch(`/usuarios/${usuarioReativar.id}/reativar`);
+    setUsuarios(lista => lista.map(u => u.id === usuarioReativar.id ? { ...u, status: 'ATIVO' } : u));
+    setUsuarioReativar(null);
+  }
+
   const perfilLabel = { ADMIN: 'Admin', DIRECTOR: 'Director', USER: 'User' };
 
   return (
@@ -46,7 +53,7 @@ export default function Usuarios() {
       <main>
         <div className="card-box">
           <div className="page-header">
-            <h2>Gestão de Usuários</h2>
+            <h1>Gestão de Usuários</h1>
             <button ref={cadastroBotao} className="btn btn-primary" onClick={() => navigate('/usuarios/cadastro')}>
               + Cadastrar Usuário
             </button>
@@ -64,7 +71,7 @@ export default function Usuarios() {
           {carregandoLista ? <p className="list-feedback" role="status">Carregando usuários…</p> : erroLista ? (
             <div className="alert alert-erro" role="alert">{erroLista} <button type="button" className="btn btn-secondary btn-sm" onClick={() => carregar(busca)}>Tentar novamente</button></div>
           ) : (
-          <div className="table-scroll" role="region" aria-label="Tabela de usuários" tabIndex={0}><table className="cps-table">
+          <div className="table-scroll" role="region" aria-label="Tabela de usuários" tabIndex={0}><table className="cps-table cps-table-stack">
             <thead>
               <tr>
                 <th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Ações</th>
@@ -73,22 +80,28 @@ export default function Usuarios() {
             <tbody>
               {usuarios.map(u => (
                 <tr key={u.id}>
-                  <td>{u.nome}</td>
-                  <td>{u.email}</td>
-                  <td>{perfilLabel[u.perfil] || u.perfil}</td>
-                  <td>
+                  <td data-label="Nome">{u.nome}</td>
+                  <td data-label="E-mail">{u.email}</td>
+                  <td data-label="Perfil">{perfilLabel[u.perfil] || u.perfil}</td>
+                  <td data-label="Status">
                     <span className={`badge badge-user-status badge-${u.status === 'ATIVO' ? 'ativo' : 'inativo'}`}>
                       {u.status}
                     </span>
                   </td>
-                  <td>
+                  <td data-label="Ações">
                     <div className="actions-bar">
-                      <button className="btn btn-secondary btn-sm" onClick={() => navigate('/usuarios/edicao', { state: { usuarioId: String(u.id) } })}>
-                        Editar
-                      </button>
-                      {u.status === 'ATIVO' && (
-                        <button className="btn btn-danger btn-sm" onClick={() => setUsuarioInativar(u)}>
-                          Inativar
+                      {u.status === 'ATIVO' ? (
+                        <>
+                          <button className="btn btn-secondary btn-sm" onClick={() => navigate('/usuarios/edicao', { state: { usuarioId: String(u.id) } })}>
+                            Editar
+                          </button>
+                          <button className="btn btn-danger btn-sm" onClick={() => setUsuarioInativar(u)}>
+                            Inativar
+                          </button>
+                        </>
+                      ) : (
+                        <button className="btn btn-danger btn-sm" onClick={() => setUsuarioReativar(u)}>
+                          Reativar
                         </button>
                       )}
                     </div>
@@ -108,6 +121,7 @@ export default function Usuarios() {
         </div>
       </main>
       {usuarioInativar && <ConfirmarInativacao titulo="Inativar Usuário" pergunta="Confirma que deseja inativar o usuário abaixo?" identificacao={`${usuarioInativar.nome} - ${perfilLabel[usuarioInativar.perfil] || usuarioInativar.perfil}`} onConfirmar={inativar} onCancelar={() => setUsuarioInativar(null)} focoRetorno={cadastroBotao} />}
+      {usuarioReativar && <ConfirmarInativacao titulo="Reativar Usuário" pergunta="Confirma que deseja reativar o usuário abaixo?" identificacao={`${usuarioReativar.nome} - ${perfilLabel[usuarioReativar.perfil] || usuarioReativar.perfil}`} rotuloEnvio="Reativando…" erroPadrao="Não foi possível reativar. Tente novamente." onConfirmar={reativar} onCancelar={() => setUsuarioReativar(null)} focoRetorno={cadastroBotao} />}
     </>
   );
 }
