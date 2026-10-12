@@ -29,6 +29,7 @@ function apresentarChamado(chamado, usuario) {
   delete resposta.prazo_resolucao_em;
   delete resposta.pausas_sla;
   delete resposta.documentos_vinculados;
+  delete resposta.ativo;
   return resposta;
 }
 
@@ -84,6 +85,7 @@ async function criar_chamado(req, res) {
     if (!local || local.status !== 'ATIVO') return res.status(400).json({ erro: 'Selecione uma localização ativa.' });
 
     if (id_ativo) {
+      if (req.usuario.perfil === 'USER') return res.status(403).json({ erro: 'Seu perfil não pode vincular um ativo ao chamado.' });
       const ativo = await prisma.aTIVOS.findUnique({ where: { id: toId(id_ativo) } });
       if (!ativo) return res.status(400).json({ erro: 'Ativo não encontrado.' });
       if (['MANUTENCAO', 'EM_MANUTENCAO'].includes(ativo.status)) {

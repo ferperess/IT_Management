@@ -239,6 +239,28 @@ describe('chamadosController: criar', () => {
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({ erro: 'Ativo não encontrado.' });
   });
+
+  test('deve bloquear USER de vincular ativo ao abrir chamado', async () => {
+    prisma.aTIVOS.findUnique.mockClear();
+    const req = { body: { titulo: 'Problema no PC', descricao: 'Descrição completa do problema', id_local: '2', id_ativo: 1 }, usuario: { id: 1n, perfil: 'USER' } };
+    const res = mockRes();
+
+    await criar(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(prisma.aTIVOS.findUnique).not.toHaveBeenCalled();
+  });
+});
+
+describe('chamadosController: dados de ativo para USER', () => {
+  test('buscarPorId não expõe o ativo ao solicitante USER', async () => {
+    prisma.cHAMADOS.findUnique.mockResolvedValue({ id: 1n, id_solicitante: 1n, ativo: { id: 5n, nome: 'PC', local: { id: 1n, nome: 'Lab' } }, pausas_sla: [], documentos_vinculados: [], historico: [] });
+    const res = mockRes();
+
+    await buscarPorId({ params: { id: '1' }, usuario: { perfil: 'USER', id: 1n } }, res);
+
+    expect(res.json.mock.calls[0][0]).not.toHaveProperty('ativo');
+  });
 });
 
 describe('opção de confirmação na abertura', () => {

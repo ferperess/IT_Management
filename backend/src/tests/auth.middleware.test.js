@@ -1,4 +1,6 @@
+jest.mock('../prisma', () => ({ uSUARIOS: { findUnique: jest.fn() } }));
 const jwt = require('jsonwebtoken');
+const prisma = require('../prisma');
 const { autenticar, apenasAdminOuDirector, apenasAdmin, apenasAdminOuUser, SECRET } = require('../middlewares/auth');
 const routes = require('../routes');
 
@@ -14,13 +16,15 @@ function mockRes() {
 // autenticar
 // ─────────────────────────────────────────
 describe('Middleware: autenticar', () => {
-  test('deve chamar next() com token válido', () => {
+  beforeEach(() => prisma.uSUARIOS.findUnique.mockResolvedValue({ id: 1n, perfil: 'ADMIN', status: 'ATIVO' }));
+
+  test('deve chamar next() com token válido', async () => {
     const token = jwt.sign({ id: 1, perfil: 'ADMIN' }, SECRET);
     const req = { headers: { authorization: `Bearer ${token}` } };
     const res = mockRes();
     const next = jest.fn();
 
-    autenticar(req, res, next);
+    await autenticar(req, res, next);
 
     expect(next).toHaveBeenCalledTimes(1);
     expect(req.usuario).toBeDefined();
@@ -28,56 +32,109 @@ describe('Middleware: autenticar', () => {
     expect(req.usuario.perfil).toBe('ADMIN');
   });
 
-  test('deve retornar 401 sem header Authorization', () => {
+  test('deve retornar 401 sem header Authorization', async () => {
     const req = { headers: {} };
     const res = mockRes();
     const next = jest.fn();
 
-    autenticar(req, res, next);
+    await autenticar(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith({ erro: 'Token não fornecido.' });
     expect(next).not.toHaveBeenCalled();
   });
 
-  test('deve retornar 401 com token inválido', () => {
+  test('deve retornar 401 com token inválido', async () => {
     const req = { headers: { authorization: 'Bearer token_invalido_xpto' } };
     const res = mockRes();
     const next = jest.fn();
 
-    autenticar(req, res, next);
+    await autenticar(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith({ erro: 'Token inválido ou malformado.' });
     expect(next).not.toHaveBeenCalled();
   });
 
-  test('deve retornar 401 com token expirado', () => {
+  test('deve retornar 401 com token expirado', async () => {
     const token = jwt.sign({ id: 1, perfil: 'ADMIN' }, SECRET, { expiresIn: '0s' });
     const req = { headers: { authorization: `Bearer ${token}` } };
     const res = mockRes();
     const next = jest.fn();
 
-    autenticar(req, res, next);
+    await autenticar(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
+  });
+  test('usa o perfil atual do banco, não o do token', async () => {
+    prisma.uSUARIOS.findUnique.mockResolvedValue({ id: 1n, perfil: 'USER', status: 'ATIVO' });
+    const token = jwt.sign({ id: 1, perfil: 'ADMIN' }, SECRET);
+    const req = { headers: { authorization: ['Bearer', token].join(' ') } };
+    const next = jest.fn();
+
+    await autenticar(req, mockRes(), next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(req.usuario.perfil).toBe('USER');
+  });
+
+  test('deve retornar 401 para usuário inativo', async () => {
+    prisma.uSUARIOS.findUnique.mockResolvedValue({ id: 1n, perfil: 'ADMIN', status: 'INATIVO' });
+    const token = jwt.sign({ id: 1, perfil: 'ADMIN' }, SECRET);
+    const req = { headers: { authorization: ['Bearer', token].join(' ') } };
+    const res = mockRes();
+    const next = jest.fn();
+
+    await autenticar(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  test('deve retornar 401 para usuário inexistente', async () => {
+    prisma.uSUARIOS.findUnique.mockResolvedValue(null);
+    const token = jwt.sign({ id: 1, perfil: 'ADMIN' }, SECRET);
+    const req = { headers: { authorization: ['Bearer', token].join(' ') } };
+    const res = mockRes();
+    const next = jest.fn();
+
+    await autenticar(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  test('deve retornar 500 se a consulta ao banco falhar', async () => {
+    prisma.uSUARIOS.findUnique.mockRejectedValue(new Error('db'));
+    const token = jwt.sign({ id: 1, perfil: 'ADMIN' }, SECRET);
+    const req = { headers: { authorization: ['Bearer', token].join(' ') } };
+    const res = mockRes();
+    const next = jest.fn();
+
+    await autenticar(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(500);
     expect(next).not.toHaveBeenCalled();
   });
 });
 
 // ─────────────────────────────────────────
-// perfil e compatibilidade dos tokens emitidos antes da migração
+// perfil e compatibilidade
 // ─────────────────────────────────────────
 describe('Middleware: perfis de acesso', () => {
+  beforeEach(() => jest.clearAllMocks());
+
   test.each([['GERAL', 'ADMIN'], ['INTERMEDIARIO', 'DIRECTOR'], ['BAIXO', 'USER'], ['TECNICO', 'DIRECTOR'], ['COMUM', 'USER']])(
     'normaliza token legado %s para %s',
-    (perfilAntigo, perfilNovo) => {
+    async (perfilAntigo, perfilNovo) => {
+      prisma.uSUARIOS.findUnique.mockResolvedValue({ id: 1n, perfil: perfilAntigo, status: 'ATIVO' });
       const token = jwt.sign({ id: 1, perfil: perfilAntigo }, SECRET);
       const req = { headers: { authorization: `Bearer ${token}` } };
       const res = mockRes();
       const next = jest.fn();
 
-      autenticar(req, res, next);
+      await autenticar(req, res, next);
 
       expect(req.usuario.perfil).toBe(perfilNovo);
       expect(next).toHaveBeenCalledTimes(1);
