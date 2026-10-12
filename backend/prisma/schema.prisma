@@ -71,7 +71,6 @@ model CHAMADOS {
   solicitante    USUARIOS @relation("solicitante", fields: [id_solicitante], references: [id], onDelete: NoAction, onUpdate: NoAction)
   id_aberto_por BigInt?
   aberto_por USUARIOS? @relation("autor_abertura", fields: [id_aberto_por], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
   id_local BigInt?
   local    LOCAIS? @relation(fields: [id_local], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
