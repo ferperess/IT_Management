@@ -59,7 +59,9 @@ export default function Usuarios() {
             </button>
           </div>
           <div className="form-row" style={{ marginBottom: 15 }}>
+            <label className="sr-only" htmlFor="usuarios-busca">Buscar usuário por nome ou e-mail</label>
             <input
+              id="usuarios-busca"
               className="form-control"
               placeholder="Buscar usuário por nome ou e-mail..."
               value={busca}
