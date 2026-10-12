@@ -41,6 +41,21 @@ test('não permite alterar o ativo relacionado durante a edição', async () => 
   expect(r.json).toHaveBeenCalledWith({ erro: 'O ativo relacionado não pode ser alterado durante a edição.' });
   expect(prisma.dOCUMENTACOES.update).not.toHaveBeenCalled();
 });
+test('rejeita arquivo cujo conteúdo não corresponde ao MIME declarado', async () => {
+  const r = response();
+  await ctrl.criar({
+    ...req({ titulo: 'Manual' }),
+    file: {
+      mimetype: 'application/pdf',
+      originalname: 'manual.pdf',
+      size: 12,
+      buffer: Buffer.from('not really a PDF'),
+    },
+  }, r);
+  expect(r.status).toHaveBeenCalledWith(400);
+  expect(r.json).toHaveBeenCalledWith({ erro: 'O conteúdo do arquivo não corresponde ao tipo informado.' });
+  expect(prisma.dOCUMENTACOES.create).not.toHaveBeenCalled();
+});
 test.each(['CONCLUIDO', 'CANCELADO'])('não edita nem exclui documento de chamado %s', async status => {
   doc.chamados_vinculados = [{ id_chamado: 1n, chamado: { id: 1n, status } }];
   const a = response(); await ctrl.atualizar(req({ titulo: 'Alterado' }), a); expect(a.status).toHaveBeenCalledWith(409);

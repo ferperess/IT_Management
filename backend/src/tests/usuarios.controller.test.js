@@ -85,7 +85,7 @@ describe('usuariosController: criar', () => {
   test('deve criar usuário com dados válidos', async () => {
     const novoUsuario = { id: 1, nome: 'Fer', email: 'fer@teste.com', username: 'fer', perfil: 'USER', status: 'ATIVO' };
     prisma.uSUARIOS.create.mockResolvedValue(novoUsuario);
-    const req = { body: { nome: 'Fer', email: 'fer@teste.com', username: 'fer', senha: '123456' } };
+    const req = { body: { nome: 'Fer', email: 'fer@teste.com', username: 'fer', senha: 'SenhaSegura123' } };
     const res = mockRes();
 
     await criar(req, res);
@@ -96,13 +96,30 @@ describe('usuariosController: criar', () => {
 
   test('deve retornar 409 se email ou username já existir', async () => {
     prisma.uSUARIOS.create.mockRejectedValue({ code: 'P2002' });
-    const req = { body: { nome: 'Fer', email: 'existente@teste.com', username: 'fer', senha: '123456' } };
+    const req = { body: { nome: 'Fer', email: 'existente@teste.com', username: 'fer', senha: 'SenhaSegura123' } };
     const res = mockRes();
 
     await criar(req, res);
 
     expect(res.status).toHaveBeenCalledWith(409);
     expect(res.json).toHaveBeenCalledWith({ erro: 'Email ou username já em uso.' });
+  });
+
+  test('deve rejeitar senha abaixo da política reforçada', async () => {
+    const res = mockRes();
+    await criar({ body: { nome: 'Fer', email: 'fer@teste.com', username: 'fer', senha: '123456' } }, res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(prisma.uSUARIOS.create).not.toHaveBeenCalled();
+  });
+
+  test('deve rejeitar senha acima de 18 caracteres', async () => {
+    const res = mockRes();
+    await criar({
+      body: { nome: 'Fer', email: 'fer@teste.com', username: 'fer', senha: 'a'.repeat(19) },
+    }, res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ erro: 'A senha deve ter entre 12 e 18 caracteres.' });
+    expect(prisma.uSUARIOS.create).not.toHaveBeenCalled();
   });
 });
 
@@ -129,6 +146,20 @@ describe('usuariosController: atualizar', () => {
 
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith({ erro: 'Usuário não encontrado.' });
+  });
+
+  test('deve rejeitar campo de texto com tipo inesperado sem chamar o banco', async () => {
+    const res = mockRes();
+    await atualizar({ params: { id: '1' }, body: { email: { $ne: null } } }, res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(prisma.uSUARIOS.update).not.toHaveBeenCalled();
+  });
+
+  test('deve rejeitar corpo de atualização vazio sem chamar o banco', async () => {
+    const res = mockRes();
+    await atualizar({ params: { id: '1' }, body: null }, res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(prisma.uSUARIOS.update).not.toHaveBeenCalled();
   });
 });
 

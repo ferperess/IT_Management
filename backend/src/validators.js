@@ -7,6 +7,8 @@ const TIPOS_ATIVO_VALIDOS = ['COMPUTADOR', 'NOTEBOOK', 'IMPRESSORA', 'SERVIDOR',
 const STATUS_CHAMADO_VALIDOS = ['ABERTO', 'EM_ANDAMENTO', 'AGUARDANDO_USUARIO', 'CONCLUIDO', 'CANCELADO'];
 const PRIORIDADES_VALIDAS = ['BAIXA', 'MEDIA', 'ALTA', 'CRITICA'];
 const CATEGORIAS_VALIDAS = ['HARDWARE', 'SOFTWARE', 'REDE', 'ACESSO', 'IMPRESSORA', 'AUDIOVISUAL', 'OUTRO'];
+const SENHA_MIN_CARACTERES = 12;
+const SENHA_MAX_CARACTERES = 18;
 
 // Fluxo de status permitido para chamados
 const TRANSICOES_STATUS = {
@@ -18,12 +20,15 @@ const TRANSICOES_STATUS = {
 };
 
 function validarEmail(email) {
+  if (typeof email !== 'string' || email.length > 254) return false;
   const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return regex.test(email);
 }
 
 function validarSenha(senha) {
-  return typeof senha === 'string' && senha.length >= 6;
+  return typeof senha === 'string'
+    && senha.length >= SENHA_MIN_CARACTERES
+    && senha.length <= SENHA_MAX_CARACTERES;
 }
 
 function validarTransicaoStatus(statusAtual, statusNovo) {
@@ -43,6 +48,8 @@ module.exports = {
   STATUS_CHAMADO_VALIDOS,
   PRIORIDADES_VALIDAS,
   CATEGORIAS_VALIDAS,
+  SENHA_MIN_CARACTERES,
+  SENHA_MAX_CARACTERES,
   TRANSICOES_STATUS,
   validarEmail,
   validarSenha,

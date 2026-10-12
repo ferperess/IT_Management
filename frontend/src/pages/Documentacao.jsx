@@ -337,7 +337,7 @@ export default function Documentacao() {
           </div>
           <div className="table-scroll" role="region" aria-label="Tabela de documentos" tabIndex={0}><table className="cps-table cps-table-stack">
             <thead>
-              <tr><th>Título</th><th>Ativo Vinculado</th><th>Responsável</th><th>Data Registro</th><th>Ações</th></tr>
+              <tr><th scope="col">Título</th><th scope="col">Ativo Vinculado</th><th scope="col">Responsável</th><th scope="col">Data Registro</th><th scope="col">Ações</th></tr>
             </thead>
             <tbody>
               {docsFiltrados.map(d => (

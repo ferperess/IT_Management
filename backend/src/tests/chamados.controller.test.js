@@ -170,6 +170,26 @@ describe('chamadosController: criar', () => {
     expect(res.json).toHaveBeenCalledWith({ erro: 'Campos obrigatórios: titulo, descricao.' });
   });
 
+  test.each([null, 42, {}])('deve rejeitar título não textual (%p) com 400', async titulo => {
+    const req = { body: { titulo, descricao: 'Descrição completa do problema', id_local: '2' }, usuario: { id: 1n } };
+    const res = mockRes();
+
+    await criar(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(prisma.cHAMADOS.create).not.toHaveBeenCalled();
+  });
+
+  test('deve rejeitar conteúdo de chamado acima do limite', async () => {
+    const req = { body: { titulo: 'x'.repeat(201), descricao: 'Descrição completa do problema', id_local: '2' }, usuario: { id: 1n } };
+    const res = mockRes();
+
+    await criar(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(prisma.cHAMADOS.create).not.toHaveBeenCalled();
+  });
+
   test('deve retornar 400 se descricao não for fornecida', async () => {
     const req = { body: { titulo: 'Problema' }, usuario: { id: 1 } };
     const res = mockRes();

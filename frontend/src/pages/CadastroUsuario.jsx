@@ -83,7 +83,8 @@ export default function CadastroUsuario() {
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="cadastrousuario-campo-4">Senha {isEdicao && <span style={{ fontWeight: 'normal', fontSize: 12 }}>(deixe em branco para manter)</span>}</label>
-                <input id="cadastrousuario-campo-4" type="password" className="form-control" value={form.senha} onChange={set('senha')} {...(!isEdicao ? { required: true } : {})} />
+                <input id="cadastrousuario-campo-4" type="password" className="form-control" value={form.senha} onChange={set('senha')} minLength={form.senha || !isEdicao ? 12 : undefined} maxLength={18} {...(!isEdicao ? { required: true } : {})} />
+                <small>{isEdicao ? 'Para alterar, informe uma senha de 12 a 18 caracteres.' : 'Use uma senha de 12 a 18 caracteres.'}</small>
               </div>
               <div className="form-group">
                 <label htmlFor="cadastrousuario-campo-5">Perfil de Acesso</label>

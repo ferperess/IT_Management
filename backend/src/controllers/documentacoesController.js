@@ -17,6 +17,24 @@ function apresentar(doc, usuario) {
     chamados: chamados_vinculados.filter(v => usuario.perfil !== 'USER' || String(v.chamado.id_solicitante) === String(usuario.id))
       .map(v => ({ id: v.chamado.id, titulo: v.chamado.titulo, status: v.chamado.status })) };
 }
+function arquivoCorrespondeAoMime(file) {
+  const buffer = file.buffer;
+  if (!buffer || buffer.length === 0) return false;
+  switch (file.mimetype) {
+    case 'application/pdf':
+      return buffer.subarray(0, 5).toString('ascii') === '%PDF-';
+    case 'image/jpeg':
+      return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+    case 'image/png':
+      return buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    case 'application/msword':
+      return buffer.subarray(0, 8).equals(Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]));
+    case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+      return buffer[0] === 0x50 && buffer[1] === 0x4b && buffer.includes(Buffer.from('word/document.xml'));
+    default:
+      return false;
+  }
+}
 function responderErro(res, err) {
   if (err.httpStatus) return res.status(err.httpStatus).json({ erro: err.message });
   if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
@@ -40,7 +58,7 @@ async function download(req, res) {
     const doc = await prisma.dOCUMENTACOES.findUnique({ where: { id: toId(req.params.id) }, select: { arquivo_nome: true, arquivo_mime: true, arquivo_dados: true } });
     if (!doc || !doc.arquivo_dados) throw falha(404, 'Arquivo não encontrado.');
     res.setHeader('Content-Type', doc.arquivo_mime || 'application/octet-stream');
-    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(doc.arquivo_nome || 'arquivo')}"`);
+    res.attachment(doc.arquivo_nome || 'arquivo');
     res.send(doc.arquivo_dados);
   } catch (err) { responderErro(res, err); }
 }
@@ -63,7 +81,7 @@ function dadosDocumento(req, novo) {
   if (req.file) {
     const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
     if (!allowed.includes(req.file.mimetype)) throw falha(400, 'Tipo de arquivo não permitido (PDF, JPG, PNG ou DOC/DOCX).');
-    if (req.file.size > 5 * 1024 * 1024) throw falha(400, 'Arquivo muito grande. Limite de 5MB.');
+    if (!arquivoCorrespondeAoMime(req.file)) throw falha(400, 'O conteúdo do arquivo não corresponde ao tipo informado.');
     data.arquivo_nome = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
     data.arquivo_mime = req.file.mimetype;
     data.arquivo_dados = req.file.buffer;

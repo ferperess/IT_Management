@@ -10,12 +10,14 @@ jest.mock('../prisma', () => ({
 }));
 
 const prisma = require('../prisma');
-const { login } = require('../controllers/authController');
+const { login, session, logout } = require('../controllers/authController');
 
 function mockRes() {
   const res = {};
   res.status = jest.fn().mockReturnValue(res);
   res.json = jest.fn().mockReturnValue(res);
+  res.cookie = jest.fn().mockReturnValue(res);
+  res.clearCookie = jest.fn().mockReturnValue(res);
   return res;
 }
 
@@ -30,6 +32,13 @@ describe('authController: login', () => {
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({ erro: 'Email e senha obrigatórios.' });
+  });
+
+  test('deve retornar 400 para corpo nulo ou malformado', async () => {
+    const res = mockRes();
+    await login({ body: null }, res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(prisma.uSUARIOS.findUnique).not.toHaveBeenCalled();
   });
 
   test('deve retornar 400 se senha não for fornecida', async () => {
@@ -76,7 +85,7 @@ describe('authController: login', () => {
     expect(res.json).toHaveBeenCalledWith({ erro: 'Credenciais inválidas.' });
   });
 
-  test('deve retornar token e dados do usuário com credenciais válidas', async () => {
+  test('emite cookie HttpOnly e dados do usuário sem retornar o JWT', async () => {
     const hash = await bcrypt.hash('senha123', 10);
     const usuarioMock = { id: 1, nome: 'Admin', email: 'admin@teste.com', perfil: 'ADMIN', status: 'ATIVO', senha_hash: hash };
     prisma.uSUARIOS.findUnique.mockResolvedValue(usuarioMock);
@@ -88,9 +97,18 @@ describe('authController: login', () => {
 
     expect(res.json).toHaveBeenCalledTimes(1);
     const resposta = res.json.mock.calls[0][0];
-    expect(resposta.token).toBeDefined();
+    expect(resposta.token).toBeUndefined();
+    expect(resposta.csrfToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(resposta.usuario.email).toBe('admin@teste.com');
     expect(resposta.usuario.perfil).toBe('ADMIN');
+    expect(res.cookie).toHaveBeenCalledTimes(1);
+    const [cookieName, token, cookieOptions] = res.cookie.mock.calls[0];
+    expect(cookieName).toBe('sgti_session');
+    expect(cookieOptions).toEqual(expect.objectContaining({ httpOnly: true, path: '/', maxAge: 60 * 60 * 1000 }));
+    const claims = jwt.verify(token, process.env.JWT_SECRET);
+    expect(claims.exp - claims.iat).toBe(60 * 60);
+    expect(claims.cv).toMatch(/^[a-f0-9]{64}$/);
+    expect(claims.csrf).toBe(resposta.csrfToken);
   });
 
   test('deve retornar 500 se o prisma lançar exceção', async () => {
@@ -118,14 +136,17 @@ describe('migração Argon2id', () => {
     expect(args.where).toEqual({ id: user.id, senha_hash: oldHash, status: 'ATIVO' });
     expect(await verifyPassword('senha123', args.data.senha_hash)).toBe(true);
     expect(args.data.senha_hash).toMatch(/^\$argon2id\$/);
-    expect(res.json.mock.calls[0][0].token).toBeDefined();
+    expect(res.cookie).toHaveBeenCalledTimes(1);
+    expect(res.json.mock.calls[0][0].token).toBeUndefined();
+    expect(res.json.mock.calls[0][0].csrfToken).toBeDefined();
     expect(res.json.mock.calls[0][0].usuario.senha_hash).toBeUndefined();
   });
   test('login Argon2id não regrava a senha', async () => {
     prisma.uSUARIOS.findUnique.mockResolvedValue({ ...user, senha_hash: await hashPassword('senha123') });
     const res = mockRes();
     await login({ body: { email: user.email, senha: 'senha123' } }, res);
-    expect(res.json.mock.calls[0][0].token).toBeDefined();
+    expect(res.cookie).toHaveBeenCalledTimes(1);
+    expect(res.json.mock.calls[0][0].token).toBeUndefined();
     expect(prisma.uSUARIOS.updateMany).not.toHaveBeenCalled();
   });
   test('conflito na migração não emite token', async () => {
@@ -134,6 +155,22 @@ describe('migração Argon2id', () => {
     const res = mockRes();
     await login({ body: { email: user.email, senha: 'senha123' } }, res);
     expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json.mock.calls[0][0].token).toBeUndefined();
+    expect(res.cookie).not.toHaveBeenCalled();
   });
+});
+
+test('session retorna usuário e token CSRF autenticados', () => {
+  const res = mockRes();
+  session({ usuario: { id: 9n, nome: 'Teste', email: 'teste@example.com', perfil: 'USER', csrf: 'csrf' } }, res);
+  expect(res.json).toHaveBeenCalledWith({
+    usuario: { id: '9', nome: 'Teste', email: 'teste@example.com', perfil: 'USER' },
+    csrfToken: 'csrf',
+  });
+});
+
+test('logout apaga o cookie de sessão', () => {
+  const res = mockRes();
+  logout({}, res);
+  expect(res.clearCookie).toHaveBeenCalledWith('sgti_session', expect.objectContaining({ httpOnly: true, path: '/' }));
+  expect(res.json).toHaveBeenCalledWith({ mensagem: 'Sessão encerrada.' });
 });

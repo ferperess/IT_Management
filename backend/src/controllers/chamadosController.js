@@ -61,24 +61,29 @@ async function buscarPorId(req, res) {
 
 async function criar_chamado(req, res) {
   try {
-    const { titulo, descricao, id_local, id_ativo, exige_confirmacao = false } = req.body;
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    const { titulo, descricao, id_local, id_ativo, exige_confirmacao = false } = body;
     if (typeof exige_confirmacao !== 'boolean') return res.status(400).json({ erro: 'Confirmação do solicitante deve ser verdadeiro ou falso.' });
     const id_aberto_por = req.usuario.id;
     let id_solicitante = id_aberto_por;
-    if (req.body.id_solicitante !== undefined) {
+    if (body.id_solicitante !== undefined) {
       if (req.usuario.perfil !== 'ADMIN') return res.status(403).json({ erro: 'Somente administradores podem escolher outro solicitante.' });
-      id_solicitante = toId(req.body.id_solicitante);
+      id_solicitante = toId(body.id_solicitante);
     }
 
-    if (!titulo || !descricao) {
+    if (typeof titulo !== 'string' || typeof descricao !== 'string' || !titulo.trim() || !descricao.trim()) {
       return res.status(400).json({ erro: 'Campos obrigatórios: titulo, descricao.' });
     }
-    if (titulo.trim().length < 5) {
+    const tituloLimpo = titulo.trim();
+    const descricaoLimpa = descricao.trim();
+    if (tituloLimpo.length < 5) {
       return res.status(400).json({ erro: 'O título deve ter no mínimo 5 caracteres.' });
     }
-    if (descricao.trim().length < 10) {
+    if (tituloLimpo.length > 200) return res.status(400).json({ erro: 'O título deve ter no máximo 200 caracteres.' });
+    if (descricaoLimpa.length < 10) {
       return res.status(400).json({ erro: 'A descrição deve ter no mínimo 10 caracteres.' });
     }
+    if (descricaoLimpa.length > 5000) return res.status(400).json({ erro: 'A descrição deve ter no máximo 5000 caracteres.' });
     if (!id_local) return res.status(400).json({ erro: 'Selecione a localização do problema.' });
 
     const local = await prisma.lOCAIS.findUnique({ where: { id: toId(id_local) } });
@@ -104,7 +109,7 @@ async function criar_chamado(req, res) {
     let categoria = 'OUTRO';
     let aviso = null;
     try {
-      const classificacao = await classificarChamado(titulo, descricao);
+      const classificacao = await classificarChamado(tituloLimpo, descricaoLimpa);
       prioridade = classificacao.prioridade;
       categoria = classificacao.categoria;
     } catch (iaErr) {
@@ -113,7 +118,7 @@ async function criar_chamado(req, res) {
     }
 
     const chamado = await prisma.cHAMADOS.create({
-      data: { titulo, descricao, exige_confirmacao, prioridade, categoria, ...prazosIniciais(prioridade), id_solicitante, id_aberto_por, id_local: local.id, id_ativo: id_ativo ? toId(id_ativo) : null },
+      data: { titulo: tituloLimpo, descricao: descricaoLimpa, exige_confirmacao, prioridade, categoria, ...prazosIniciais(prioridade), id_solicitante, id_aberto_por, id_local: local.id, id_ativo: id_ativo ? toId(id_ativo) : null },
       include,
     });
 
@@ -143,8 +148,10 @@ async function atualizar_chamado(req, res) {
   try {
     if (req.usuario.perfil !== 'ADMIN') return res.status(403).json({ erro: 'Acesso negado.' });
     const id = toId(req.params.id);
-    const { prioridade, categoria, id_tecnico, comentario, ids_documentacoes } = req.body;
-    let { status, motivo_espera } = req.body;
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : null;
+    if (!body) throw falha(400, 'Dados do chamado inválidos.');
+    const { prioridade, categoria, id_tecnico, comentario, ids_documentacoes } = body;
+    let { status, motivo_espera } = body;
     if (comentario !== undefined && typeof comentario !== 'string') throw falha(400, 'Comentário inválido.');
     const updated = await escrever(async tx => {
       const chamado = await tx.cHAMADOS.findUnique({ where: { id }, include });
@@ -220,7 +227,8 @@ async function atualizar_chamado(req, res) {
 async function responderConfirmacao(req, res) {
   try {
     const id = toId(req.params.id);
-    const { confirmar } = req.body;
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    const { confirmar } = body;
     if (typeof confirmar !== 'boolean') throw falha(400, 'Informe se deseja confirmar ou rejeitar o encerramento.');
     const updated = await escrever(async tx => {
       const chamado = await tx.cHAMADOS.findUnique({ where: { id }, include });

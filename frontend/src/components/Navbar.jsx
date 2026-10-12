@@ -8,6 +8,7 @@ export default function Navbar() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [menuAberto, setMenuAberto] = useState(false);
+  const [erroLogout, setErroLogout] = useState('');
   const menuBotao = useRef(null);
 
   useEffect(() => { setMenuAberto(false); }, [pathname]);
@@ -19,9 +20,14 @@ export default function Navbar() {
     }
   }
 
-  function handleSair() {
-    logout();
-    navigate('/');
+  async function handleSair() {
+    setErroLogout('');
+    try {
+      await logout();
+      navigate('/');
+    } catch {
+      setErroLogout('Não foi possível encerrar a sessão. Tente novamente.');
+    }
   }
 
   return (
@@ -69,6 +75,7 @@ export default function Navbar() {
         </ul>
       </nav>
       <div className="nav-sair">
+        {erroLogout && <span role="alert">{erroLogout}</span>}
         <button type="button" className="nav-logout" onClick={handleSair}>Sair</button>
       </div>
     </header>

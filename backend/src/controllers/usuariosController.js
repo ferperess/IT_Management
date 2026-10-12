@@ -4,9 +4,17 @@ const prisma = require('../prisma');
 const {
   PERFIS_VALIDOS,
   STATUS_USUARIO_VALIDOS,
+  SENHA_MIN_CARACTERES,
+  SENHA_MAX_CARACTERES,
   validarEmail,
   validarSenha,
 } = require('../validators');
+
+function normalizarTextoUsuario(valor, maximo) {
+  if (typeof valor !== 'string' || valor.length > maximo) return null;
+  const texto = valor.trim();
+  return texto || null;
+}
 
 async function listar_usuarios(req, res) {
   try {
@@ -46,12 +54,11 @@ async function buscarPorId(req, res) {
 
 async function criar_usuario(req, res) {
   try {
-    let { nome, email, username, senha, perfil, status } = req.body;
-
-    // Sanitização de entradas
-    if (nome) nome = nome.trim().substring(0, 100);
-    if (username) username = username.trim().toLowerCase().substring(0, 50);
-    if (email) email = email.trim().toLowerCase();
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    const { senha, perfil, status } = body;
+    const nome = normalizarTextoUsuario(body.nome, 100);
+    const email = normalizarTextoUsuario(body.email, 254)?.toLowerCase();
+    const username = normalizarTextoUsuario(body.username, 50)?.toLowerCase();
 
     if (!nome || !email || !username || !senha) {
       return res.status(400).json({ erro: 'Campos obrigatórios: nome, email, username, senha.' });
@@ -64,16 +71,16 @@ async function criar_usuario(req, res) {
 
     // Validação de senha mínima
     if (!validarSenha(senha)) {
-      return res.status(400).json({ erro: 'A senha deve ter no mínimo 6 caracteres.' });
+      return res.status(400).json({ erro: `A senha deve ter entre ${SENHA_MIN_CARACTERES} e ${SENHA_MAX_CARACTERES} caracteres.` });
     }
 
     // Validação de perfil
-    if (perfil && !PERFIS_VALIDOS.includes(perfil)) {
+    if (perfil !== undefined && !PERFIS_VALIDOS.includes(perfil)) {
       return res.status(400).json({ erro: `Perfil inválido. Valores aceitos: ${PERFIS_VALIDOS.join(', ')}.` });
     }
 
     // Validação de status
-    if (status && !STATUS_USUARIO_VALIDOS.includes(status)) {
+    if (status !== undefined && !STATUS_USUARIO_VALIDOS.includes(status)) {
       return res.status(400).json({ erro: `Status inválido. Valores aceitos: ${STATUS_USUARIO_VALIDOS.join(', ')}.` });
     }
 
@@ -93,31 +100,44 @@ async function criar_usuario(req, res) {
 async function atualizar_usuario(req, res) {
   try {
     const { id } = req.params;
-    const { nome, email, username, senha, perfil, status } = req.body;
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    if (Object.keys(body).length === 0) return res.status(400).json({ erro: 'Informe ao menos um campo válido para atualização.' });
+    const { senha, perfil, status } = body;
+    const data = {};
+    const camposTexto = [
+      ['nome', 100, valor => valor],
+      ['email', 254, valor => valor.toLowerCase()],
+      ['username', 50, valor => valor.toLowerCase()],
+    ];
+    for (const [campo, maximo, transformar] of camposTexto) {
+      if (body[campo] !== undefined) {
+        const valor = normalizarTextoUsuario(body[campo], maximo);
+        if (!valor) return res.status(400).json({ erro: `Campo ${campo} inválido.` });
+        data[campo] = transformar(valor);
+      }
+    }
 
-    // Validação de formato de e-mail
-    if (email && !validarEmail(email)) {
+    if (data.email && !validarEmail(data.email)) {
       return res.status(400).json({ erro: 'Formato de e-mail inválido.' });
     }
 
-    // Validação de senha mínima
-    if (senha && !validarSenha(senha)) {
-      return res.status(400).json({ erro: 'A senha deve ter no mínimo 6 caracteres.' });
+    if (senha !== undefined && !validarSenha(senha)) {
+      return res.status(400).json({ erro: `A senha deve ter entre ${SENHA_MIN_CARACTERES} e ${SENHA_MAX_CARACTERES} caracteres.` });
     }
 
     // Validação de perfil
-    if (perfil && !PERFIS_VALIDOS.includes(perfil)) {
+    if (perfil !== undefined && !PERFIS_VALIDOS.includes(perfil)) {
       return res.status(400).json({ erro: `Perfil inválido. Valores aceitos: ${PERFIS_VALIDOS.join(', ')}.` });
     }
 
     // Validação de status
-    if (status && !STATUS_USUARIO_VALIDOS.includes(status)) {
+    if (status !== undefined && !STATUS_USUARIO_VALIDOS.includes(status)) {
       return res.status(400).json({ erro: `Status inválido. Valores aceitos: ${STATUS_USUARIO_VALIDOS.join(', ')}.` });
     }
 
-    const data = { nome, email, username, perfil, status };
-    if (senha) data.senha_hash = await hashPassword(senha);
-    Object.keys(data).forEach(k => data[k] === undefined && delete data[k]);
+    if (perfil !== undefined) data.perfil = perfil;
+    if (status !== undefined) data.status = status;
+    if (senha !== undefined) data.senha_hash = await hashPassword(senha);
 
     const u = await prisma.uSUARIOS.update({
       where: { id: toId(id) },

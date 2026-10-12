@@ -5,14 +5,24 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const routes = require('./routes');
+const { createLoginAccountRateLimit } = require('./middlewares/loginAccountRateLimit');
+const { createRequireFrontendOrigin } = require('./middlewares/requireFrontendOrigin');
 
 const app = express();
 app.set('trust proxy', 1);
+const frontendOrigin = new URL(process.env.FRONTEND_URL || 'http://localhost:5173').origin;
 const { jsonReplacer } = require('./utils/ids');
 app.set('json replacer', jsonReplacer);
 
 // Configuração de Segurança com Helmet
 app.use(helmet());
+app.use(cors({
+  origin: frontendOrigin,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'X-CSRF-Token'],
+}));
+app.use('/api', createRequireFrontendOrigin(frontendOrigin));
 
 // Limitação geral e proteção específica contra tentativas automatizadas de login.
 const rateLimitWindowMs = 15 * 60 * 1000;
@@ -32,13 +42,7 @@ const loginLimiter = rateLimit({
   message: { erro: 'Muitas tentativas de login. Tente novamente em 15 minutos.' }
 });
 app.use('/api/', apiLimiter);
-app.use('/api/auth/login', loginLimiter);
-
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+app.use('/api/auth/login', express.json(), loginLimiter, createLoginAccountRateLimit());
 
 app.use(express.json());
 app.use('/api', routes);

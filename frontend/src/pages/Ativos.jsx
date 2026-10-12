@@ -244,7 +244,7 @@ export default function Ativos() {
           </div>
           <div className="table-scroll" role="region" aria-label="Tabela de ativos" tabIndex={0}><table className="cps-table cps-table-stack">
             <thead>
-              <tr><th>Equipamento</th><th>Patrimônio</th><th>Tipo</th><th>Localização</th><th>Status</th>{podeEditar && <th>Ações</th>}</tr>
+              <tr><th scope="col">Equipamento</th><th scope="col">Patrimônio</th><th scope="col">Tipo</th><th scope="col">Localização</th><th scope="col">Status</th>{podeEditar && <th scope="col">Ações</th>}</tr>
             </thead>
             <tbody>
               {ativosFiltrados.map(a => (

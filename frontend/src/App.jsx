@@ -9,8 +9,9 @@ import Chamados from './pages/Chamados';
 import Documentacao from './pages/Documentacao';
 
 function RotaProtegida({ children, perfis }) {
-  const { token, usuario } = useAuth();
-  if (!token) return <Navigate to="/" replace />;
+  const { usuario, carregando } = useAuth();
+  if (carregando) return <main><p role="status">Verificando sessão...</p></main>;
+  if (!usuario) return <Navigate to="/" replace />;
   if (perfis && !perfis.includes(usuario?.perfil)) return <Navigate to="/dashboard" replace />;
   return children;
 }

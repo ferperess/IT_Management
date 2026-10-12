@@ -76,7 +76,7 @@ export default function Usuarios() {
           <div className="table-scroll" role="region" aria-label="Tabela de usuários" tabIndex={0}><table className="cps-table cps-table-stack">
             <thead>
               <tr>
-                <th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Ações</th>
+                <th scope="col">Nome</th><th scope="col">E-mail</th><th scope="col">Perfil</th><th scope="col">Status</th><th scope="col">Ações</th>
               </tr>
             </thead>
             <tbody>
