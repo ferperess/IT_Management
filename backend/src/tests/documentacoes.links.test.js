@@ -56,6 +56,6 @@ test('remove vínculos antes de excluir documento usado por chamados abertos', a
 test('não expõe dados de chamados de outro solicitante ao usuário comum', async () => {
   doc.chamados_vinculados = [{ chamado: { id: 1n, titulo: 'Meu chamado', id_solicitante: 2n, status: 'ABERTO' } }, { chamado: { id: 3n, titulo: 'Privado', id_solicitante: 4n, status: 'ABERTO' } }];
   prisma.dOCUMENTACOES.findMany.mockResolvedValue([doc]);
-  const r = response(); await ctrl.listar({ usuario: { id: 2n, perfil: 'COMUM' } }, r);
+  const r = response(); await ctrl.listar({ usuario: { id: 2n, perfil: 'USER' } }, r);
   expect(r.json.mock.calls[0][0][0].chamados).toEqual([{ id: 1n, titulo: 'Meu chamado', status: 'ABERTO' }]);
 });

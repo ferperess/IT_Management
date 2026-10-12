@@ -8,7 +8,7 @@ jest.mock('../prisma', () => ({
 }));
 
 const prisma = require('../prisma');
-const { listar, buscarPorId, criar, atualizar, inativar } = require('../controllers/usuariosController');
+const { listar, buscarPorId, criar, atualizar, inativar, reativar } = require('../controllers/usuariosController');
 
 function mockRes() {
   const res = {};
@@ -83,7 +83,7 @@ describe('usuariosController: criar', () => {
   });
 
   test('deve criar usuário com dados válidos', async () => {
-    const novoUsuario = { id: 1, nome: 'Fer', email: 'fer@teste.com', username: 'fer', perfil: 'COMUM', status: 'ATIVO' };
+    const novoUsuario = { id: 1, nome: 'Fer', email: 'fer@teste.com', username: 'fer', perfil: 'USER', status: 'ATIVO' };
     prisma.uSUARIOS.create.mockResolvedValue(novoUsuario);
     const req = { body: { nome: 'Fer', email: 'fer@teste.com', username: 'fer', senha: '123456' } };
     const res = mockRes();
@@ -110,7 +110,7 @@ describe('usuariosController: atualizar', () => {
   beforeEach(() => jest.clearAllMocks());
 
   test('deve atualizar usuário com dados válidos', async () => {
-    const atualizado = { id: 1, nome: 'Novo Nome', email: 'novo@teste.com', username: 'novo', perfil: 'COMUM', status: 'ATIVO' };
+    const atualizado = { id: 1, nome: 'Novo Nome', email: 'novo@teste.com', username: 'novo', perfil: 'USER', status: 'ATIVO' };
     prisma.uSUARIOS.update.mockResolvedValue(atualizado);
     const req = { params: { id: '1' }, body: { nome: 'Novo Nome', email: 'novo@teste.com', username: 'novo' } };
     const res = mockRes();
@@ -155,5 +155,28 @@ describe('usuariosController: inativar', () => {
 
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith({ erro: 'Usuário não encontrado.' });
+  });
+});
+
+describe('usuariosController: reativar', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  test('deve reativar usuário com sucesso', async () => {
+    prisma.uSUARIOS.update.mockResolvedValue({});
+    const res = mockRes();
+
+    await reativar({ params: { id: '1' }, usuario: { id: 2n } }, res);
+
+    expect(prisma.uSUARIOS.update).toHaveBeenCalledWith({ where: { id: 1n }, data: { status: 'ATIVO' } });
+    expect(res.json).toHaveBeenCalledWith({ mensagem: 'Usuário reativado.' });
+  });
+
+  test('deve retornar 404 se usuário não existir', async () => {
+    prisma.uSUARIOS.update.mockRejectedValue(Object.assign(new Error('not found'), { code: 'P2025' }));
+    const res = mockRes();
+
+    await reativar({ params: { id: '999' }, usuario: { id: 2n } }, res);
+
+    expect(res.status).toHaveBeenCalledWith(404);
   });
 });

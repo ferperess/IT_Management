@@ -14,7 +14,7 @@ function apresentar(doc, usuario) {
   const { chamados_vinculados = [], ...campos } = doc;
   return { ...campos,
     bloqueado: chamados_vinculados.some(v => encerrado(v.chamado.status)),
-    chamados: chamados_vinculados.filter(v => usuario.perfil !== 'COMUM' || String(v.chamado.id_solicitante) === String(usuario.id))
+    chamados: chamados_vinculados.filter(v => usuario.perfil !== 'USER' || String(v.chamado.id_solicitante) === String(usuario.id))
       .map(v => ({ id: v.chamado.id, titulo: v.chamado.titulo, status: v.chamado.status })) };
 }
 function responderErro(res, err) {
@@ -72,7 +72,7 @@ function dadosDocumento(req, novo) {
 }
 async function salvar(req, res, novo) {
   try {
-    if (!['ADMIN', 'TECNICO'].includes(req.usuario.perfil)) throw falha(403, 'Acesso negado.');
+    if (req.usuario.perfil !== 'ADMIN') throw falha(403, 'Acesso negado.');
     const data = dadosDocumento(req, novo);
     const doc = await escrever(async tx => {
       const id = novo ? null : toId(req.params.id);

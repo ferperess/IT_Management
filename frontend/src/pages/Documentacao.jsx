@@ -21,7 +21,7 @@ function validarLinkExterno(valor) {
 
 export default function Documentacao() {
   const { usuario } = useAuth();
-  const podeEditar = ['ADMIN', 'TECNICO'].includes(usuario?.perfil);
+  const podeEditar = usuario?.perfil === 'ADMIN';
 
   const [docs, setDocs] = useState([]);
   const [carregandoLista, setCarregandoLista] = useState(true);
@@ -38,6 +38,12 @@ export default function Documentacao() {
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
   const [baixando, setBaixando] = useState(null);
+  const [documentoExcluir, setDocumentoExcluir] = useState(null);
+  const [excluindo, setExcluindo] = useState(false);
+  const [erroExclusao, setErroExclusao] = useState('');
+  const exclusaoDialog = useRef(null);
+  const exclusaoBotao = useRef(null);
+  const travaExclusao = useRef(false);
   const formTitulo = useRef(null);
   const arquivoInput = useRef(null);
   const formBotao = useRef(null);
@@ -62,6 +68,19 @@ export default function Documentacao() {
   }
 
   useEffect(() => { carregar(); }, []);
+  useEffect(() => {
+    if (!documentoExcluir) return;
+    const modal = exclusaoDialog.current;
+    const overflowAnterior = document.body.style.overflow;
+    modal.showModal();
+    document.body.style.overflow = 'hidden';
+    return () => {
+      modal.close();
+      document.body.style.overflow = overflowAnterior;
+      if (exclusaoBotao.current?.isConnected) exclusaoBotao.current.focus();
+      else formBotao.current?.focus();
+    };
+  }, [documentoExcluir]);
   useEffect(() => {
     if (cadastroDocumento) {
       if (!podeEditar) {
@@ -178,14 +197,24 @@ export default function Documentacao() {
     }
   }
 
-  async function remover(id) {
-    if (!window.confirm('Remover este documento?')) return;
+  function solicitarExclusao(documento, botao) {
+    exclusaoBotao.current = botao;
+    setErroExclusao('');
+    setDocumentoExcluir(documento);
+  }
+
+  async function remover() {
+    if (!documentoExcluir || travaExclusao.current) return;
+    travaExclusao.current = true;
+    setExcluindo(true); setErroExclusao('');
     try {
-      await api.delete(`/documentacoes/${id}`);
-      carregar();
+      await api.delete(`/documentacoes/${documentoExcluir.id}`);
+      setDocs(lista => lista.filter(doc => doc.id !== documentoExcluir.id));
+      setLendoDoc(atual => atual?.id === documentoExcluir.id ? null : atual);
+      setDocumentoExcluir(null);
     } catch (err) {
-      alert(err.response?.data?.erro || 'Erro ao remover.');
-    }
+      setErroExclusao(err.response?.data?.erro || 'Não foi possível excluir o documento. Tente novamente.');
+    } finally { travaExclusao.current = false; setExcluindo(false); }
   }
 
   function fmtData(d) {
@@ -249,7 +278,7 @@ export default function Documentacao() {
                   <div className="form-group">
                     <label htmlFor="documentacao-campo-6">Arquivo (PDF, DOC, DOCX, JPG ou PNG)</label>
                     <input ref={arquivoInput} id="documentacao-campo-6" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="form-control" style={{ padding: 7 }} onChange={e => setArquivo(e.target.files[0] || null)} required={!editandoId} />
-                    {editandoId && <small style={{ color: '#999' }}>Deixe em branco para manter o arquivo atual.</small>}
+                    {editandoId && <small className="document-help-text">Deixe em branco para manter o arquivo atual.</small>}
                   </div>
                 </div>
                 <div className="form-actions">
@@ -262,7 +291,7 @@ export default function Documentacao() {
         )}
         <div className="card-box" hidden={mostrarForm}>
           <div className="page-header">
-            <h2>Base de Conhecimento / Documentação</h2>
+            <h1>Base de Conhecimento / Documentação</h1>
             <div className="document-list-actions">
               {podeEditar && (
                 <button ref={formBotao} className="btn btn-primary" aria-expanded={mostrarForm} aria-controls="documentacao-formulario" onClick={() => mostrarForm ? fecharForm() : novoForm()}>
@@ -306,18 +335,18 @@ export default function Documentacao() {
             <p role="status">{docsFiltrados.length} de {docs.length} documentos</p>
             {haFiltros && <button type="button" className="btn btn-secondary btn-sm" onClick={() => setFiltros(filtrosDocumentacaoVazios)}>Limpar filtros</button>}
           </div>
-          <div className="table-scroll" role="region" aria-label="Tabela de documentos" tabIndex={0}><table className="cps-table">
+          <div className="table-scroll" role="region" aria-label="Tabela de documentos" tabIndex={0}><table className="cps-table cps-table-stack">
             <thead>
               <tr><th>Título</th><th>Ativo Vinculado</th><th>Responsável</th><th>Data Registro</th><th>Ações</th></tr>
             </thead>
             <tbody>
               {docsFiltrados.map(d => (
                 <tr key={d.id}>
-                  <td>{d.titulo}</td>
-                  <td>{d.ativo ? d.ativo.nome : <span style={{ color: '#bbb' }}>—</span>}</td>
-                  <td>{d.responsavel?.nome}</td>
-                  <td>{fmtData(d.criado_em)}</td>
-                  <td>
+                  <td data-label="Título">{d.titulo}</td>
+                  <td data-label="Ativo Vinculado">{d.ativo ? d.ativo.nome : <span className="document-empty-value">—</span>}</td>
+                  <td data-label="Responsável">{d.responsavel?.nome}</td>
+                  <td data-label="Data Registro">{fmtData(d.criado_em)}</td>
+                  <td data-label="Ações">
                     <div className="actions-bar">
                       <button className="btn btn-secondary btn-sm" onClick={() => setLendoDoc(d)}>Ler</button>
                       {d.arquivo_nome && (
@@ -341,7 +370,7 @@ export default function Documentacao() {
                         <>
                           <button className="btn btn-secondary btn-sm" onClick={() => iniciarEdicao(d)}>Editar</button>
                           {usuario?.perfil === 'ADMIN' && (
-                            <button className="btn btn-danger btn-sm" onClick={() => remover(d.id)}>Remover</button>
+                            <button className="btn btn-danger btn-sm" onClick={e => solicitarExclusao(d, e.currentTarget)}>Remover</button>
                           )}
                         </>
                       ))}
@@ -350,9 +379,9 @@ export default function Documentacao() {
                 </tr>
               ))}
               {docs.length === 0 ? (
-                <tr><td colSpan={5} style={{ textAlign: 'center', color: '#999', padding: 20 }}>Nenhum documento cadastrado.</td></tr>
+                <tr><td colSpan={5} className="table-empty-state">Nenhum documento cadastrado.</td></tr>
               ) : docsFiltrados.length === 0 && (
-                <tr><td colSpan={5} style={{ textAlign: 'center', color: '#999', padding: 20 }}>Nenhum documento corresponde aos filtros.</td></tr>
+                <tr><td colSpan={5} className="table-empty-state">Nenhum documento corresponde aos filtros.</td></tr>
               )}
             </tbody>
           </table></div>
@@ -367,7 +396,7 @@ export default function Documentacao() {
               <h2>{lendoDoc.titulo}</h2>
               <button className="btn btn-secondary btn-sm" onClick={() => setLendoDoc(null)}>Fechar</button>
             </div>
-            <p style={{ fontSize: 13, color: '#999', marginBottom: 10 }}>
+            <p className="document-meta">
               Por: {lendoDoc.responsavel?.nome} | {new Date(lendoDoc.criado_em).toLocaleDateString('pt-BR')}
             </p>
             {lendoDoc.ativo && (
@@ -397,6 +426,18 @@ export default function Documentacao() {
         )}
 
       </main>
+      <dialog ref={exclusaoDialog} className="document-delete-dialog" aria-labelledby="document-delete-title" aria-describedby="document-delete-description document-delete-warning" onCancel={e => e.preventDefault()}>
+        <h2 id="document-delete-title">Excluir Documento</h2>
+        <hr className="divider" />
+        <p id="document-delete-description">Confirma que deseja excluir o documento abaixo?</p>
+        <p className="document-delete-name"><strong>{documentoExcluir?.titulo}</strong></p>
+        <p id="document-delete-warning">Esta ação é irreversível e não será possível recuperá-lo.</p>
+        {erroExclusao && <div className="alert alert-erro" role="alert">{erroExclusao}</div>}
+        <div className="form-actions">
+          <button type="button" className="btn btn-secondary" autoFocus disabled={excluindo} onClick={() => { if (!travaExclusao.current) setDocumentoExcluir(null); }}>Cancelar</button>
+          <button type="button" className="btn btn-primary" disabled={excluindo} onClick={remover}>{excluindo ? 'Excluindo…' : 'Confirmar'}</button>
+        </div>
+      </dialog>
     </>
   );
 }

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import ConfirmarInativacao from '../components/ConfirmarInativacao';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import usePageTitle from '../hooks/usePageTitle';
@@ -22,17 +23,22 @@ const statusLabel = { ATIVO: 'Ativo', MANUTENCAO: 'Em Manutenção', EM_MANUTENC
 const badgeMap = { ATIVO: 'ativo', MANUTENCAO: 'manutencao', EM_MANUTENCAO: 'manutencao', INATIVO: 'inativo' };
 
 const formVazio = { nome: '', patrimonio: '', tipo: 'COMPUTADOR', id_local: '', data_aquisicao: '', status: 'ATIVO' };
+const filtrosVazios = { id_local: '', tipo: '', status: '' };
 
 export default function Ativos() {
   const { usuario } = useAuth();
-  const podeEditar = ['ADMIN', 'TECNICO'].includes(usuario?.perfil);
+  const podeEditar = usuario?.perfil === 'ADMIN';
 
   const [ativos, setAtivos] = useState([]);
+  const [ativoInativar, setAtivoInativar] = useState(null);
+  const cadastroBotao = useRef(null);
   const [locais, setLocais] = useState([]);
   const [carregandoLocais, setCarregandoLocais] = useState(false);
   const [erroLocais, setErroLocais] = useState('');
   const [carregandoLista, setCarregandoLista] = useState(true);
   const [erroLista, setErroLista] = useState('');
+  const [filtros, setFiltros] = useState(filtrosVazios);
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [form, setForm] = useState(formVazio);
   const [editandoId, setEditandoId] = useState(null);
   const [erro, setErro] = useState('');
@@ -58,7 +64,10 @@ export default function Ativos() {
     } finally { setCarregandoLista(false); }
   }
 
-  useEffect(() => { carregar(); }, []);
+  useEffect(() => {
+    carregar();
+    carregarLocais();
+  }, []);
   useEffect(() => {
     if (cadastroAtivo) {
       if (!podeEditar) {
@@ -96,6 +105,14 @@ export default function Ativos() {
     } catch { setErroLocais('Não foi possível carregar as localizações.'); }
     finally { setCarregandoLocais(false); }
   }
+  const ativosFiltrados = ativos.filter(a => {
+    const status = a.status === 'EM_MANUTENCAO' ? 'MANUTENCAO' : a.status;
+    return (!filtros.id_local || String(a.id_local ?? a.local?.id ?? '') === filtros.id_local)
+      && (!filtros.tipo || a.tipo === filtros.tipo)
+      && (!filtros.status || status === filtros.status);
+  });
+  const haFiltros = Object.values(filtros).some(Boolean);
+  const mudarFiltro = campo => e => setFiltros(f => ({ ...f, [campo]: e.target.value }));
   const ativoEditado = ativos.find(a => a.id === editandoId);
   const localAnterior = ativoEditado?.local;
 
@@ -169,14 +186,10 @@ export default function Ativos() {
     }
   }
 
-  async function remover(id) {
-    if (!window.confirm('Remover este ativo?')) return;
-    try {
-      await api.delete(`/ativos/${id}`);
-      carregar();
-    } catch (err) {
-      alert(err.response?.data?.erro || 'Erro ao remover ativo.');
-    }
+  async function inativar() {
+    await api.put(`/ativos/${ativoInativar.id}`, { status: 'INATIVO' });
+    setAtivos(lista => lista.map(a => a.id === ativoInativar.id ? { ...a, status: 'INATIVO' } : a));
+    setAtivoInativar(null);
   }
 
   return (
@@ -185,43 +198,82 @@ export default function Ativos() {
       <main>
         <div className="card-box" hidden={mostrarForm}>
           <div className="page-header">
-            <h2>Gestão de Ativos</h2>
-            {podeEditar && (
-              <button className="btn btn-primary" onClick={novoForm}>+ Cadastrar Ativo</button>
-            )}
+            <h1>Gestão de Ativos</h1>
+            <div className="document-list-actions">
+              {podeEditar && (
+                <button ref={cadastroBotao} className="btn btn-primary" onClick={novoForm}>+ Cadastrar Ativo</button>
+              )}
+              <button type="button" className="btn btn-primary" aria-expanded={filtrosAbertos} aria-controls="ativos-filtros" onClick={() => setFiltrosAbertos(aberto => !aberto)}>
+                {filtrosAbertos ? 'Recolher filtro' : 'Filtro'}{haFiltros ? ` (${Object.values(filtros).filter(Boolean).length})` : ''}
+              </button>
+            </div>
+          </div>
+          <div id="ativos-filtros" className="documentation-filter-panel" hidden={!filtrosAbertos}>
+            <div className="form-row documentation-filters">
+              <div className="form-group">
+                <label htmlFor="ativos-filtro-localizacao">Localização</label>
+                <select id="ativos-filtro-localizacao" className="form-control" value={filtros.id_local} onChange={mudarFiltro('id_local')} disabled={carregandoLocais || !!erroLocais}>
+                  <option value="">{carregandoLocais ? 'Carregando localizações…' : 'Todas'}</option>
+                  {locais.map(local => <option key={local.id} value={String(local.id)}>{local.nome}</option>)}
+                </select>
+                {erroLocais && <p role="alert">{erroLocais} <button type="button" className="btn btn-secondary btn-sm" onClick={carregarLocais}>Tentar novamente</button></p>}
+              </div>
+              <div className="form-group">
+                <label htmlFor="ativos-filtro-tipo">Tipo</label>
+                <select id="ativos-filtro-tipo" className="form-control" value={filtros.tipo} onChange={mudarFiltro('tipo')}>
+                  <option value="">Todos</option>
+                  {tiposOpts.map(tipo => <option key={tipo.value} value={tipo.value}>{tipo.label}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="ativos-filtro-status">Status</label>
+                <select id="ativos-filtro-status" className="form-control" value={filtros.status} onChange={mudarFiltro('status')}>
+                  <option value="">Todos</option>
+                  {statusOpts.map(status => <option key={status} value={status}>{statusLabel[status]}</option>)}
+                </select>
+              </div>
+            </div>
           </div>
           {carregandoLista ? <p className="list-feedback" role="status">Carregando ativos…</p> : erroLista ? (
             <div className="alert alert-erro" role="alert">{erroLista} <button type="button" className="btn btn-secondary btn-sm" onClick={() => carregar()}>Tentar novamente</button></div>
           ) : (
-          <div className="table-scroll" role="region" aria-label="Tabela de ativos" tabIndex={0}><table className="cps-table">
+          <>
+          <div className="document-results">
+            <p role="status">{ativosFiltrados.length} de {ativos.length} ativos</p>
+            {haFiltros && <button type="button" className="btn btn-secondary btn-sm" onClick={() => setFiltros(filtrosVazios)}>Limpar filtros</button>}
+          </div>
+          <div className="table-scroll" role="region" aria-label="Tabela de ativos" tabIndex={0}><table className="cps-table cps-table-stack">
             <thead>
               <tr><th>Equipamento</th><th>Patrimônio</th><th>Tipo</th><th>Localização</th><th>Status</th>{podeEditar && <th>Ações</th>}</tr>
             </thead>
             <tbody>
-              {ativos.map(a => (
+              {ativosFiltrados.map(a => (
                 <tr key={a.id}>
-                  <td>{a.nome}</td>
-                  <td>{a.patrimonio || '—'}</td>
-                  <td>{tipoLabel[a.tipo] || a.tipo}</td>
-                  <td>{a.local?.nome || a.localizacao || '—'}{a.local?.status === 'INATIVO' && ' (inativo)'}</td>
-                  <td><span className={`badge badge-${badgeMap[a.status]}`}>{statusLabel[a.status]}</span></td>
+                  <td data-label="Equipamento">{a.nome}</td>
+                  <td data-label="Patrimônio">{a.patrimonio || '—'}</td>
+                  <td data-label="Tipo">{tipoLabel[a.tipo] || a.tipo}</td>
+                  <td data-label="Localização">{a.local?.nome || a.localizacao || '—'}{a.local?.status === 'INATIVO' && ' (inativo)'}</td>
+                  <td data-label="Status"><span className={`badge badge-${badgeMap[a.status]}`}>{statusLabel[a.status]}</span></td>
                   {podeEditar && (
-                    <td>
+                    <td data-label="Ações">
                       <div className="actions-bar">
                         <button className="btn btn-secondary btn-sm" onClick={() => iniciarEdicao(a)}>Editar</button>
                         {usuario?.perfil === 'ADMIN' && (
-                          <button className="btn btn-danger btn-sm" onClick={() => remover(a.id)}>Inativar</button>
+                          <button className="btn btn-danger btn-sm" disabled={a.status === 'INATIVO'} onClick={() => setAtivoInativar(a)}>Inativar</button>
                         )}
                       </div>
                     </td>
                   )}
                 </tr>
               ))}
-              {ativos.length === 0 && (
-                <tr><td colSpan={podeEditar ? 6 : 5} style={{ textAlign: 'center', color: '#999', padding: 20 }}>Nenhum ativo cadastrado.</td></tr>
+              {ativos.length === 0 ? (
+                <tr><td colSpan={podeEditar ? 6 : 5} className="table-empty-state">Nenhum ativo cadastrado.</td></tr>
+              ) : ativosFiltrados.length === 0 && (
+                <tr><td colSpan={podeEditar ? 6 : 5} className="table-empty-state">Nenhum ativo corresponde aos filtros.</td></tr>
               )}
             </tbody>
           </table></div>
+          </>
           )}
         </div>
 
@@ -299,6 +351,7 @@ export default function Ativos() {
           </div>
         )}
       </main>
+      {ativoInativar && <ConfirmarInativacao titulo="Inativar Ativo" pergunta="Confirma que deseja inativar o ativo abaixo?" identificacao={`${ativoInativar.nome} - ${ativoInativar.patrimonio || 'Sem patrimônio'}`} onConfirmar={inativar} onCancelar={() => setAtivoInativar(null)} focoRetorno={cadastroBotao} />}
     </>
   );
 }

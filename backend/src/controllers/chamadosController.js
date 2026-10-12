@@ -11,8 +11,10 @@ const {
 } = require('../validators');
 
 const include = {
+  aberto_por: { select: { id: true, nome: true } },
   solicitante: { select: { id: true, nome: true } },
-  ativo: { select: { id: true, nome: true } },
+  local: { select: { id: true, nome: true } },
+  ativo: { select: { id: true, nome: true, local: { select: { id: true, nome: true } } } },
   tecnico: { select: { id: true, nome: true } },
   pausas_sla: { orderBy: { iniciado_em: 'asc' } },
   documentos_vinculados: { include: { documentacao: { select: { id: true, titulo: true, descricao: true, arquivo_nome: true, link_externo: true } } } },
@@ -21,20 +23,21 @@ const include = {
 
 function apresentarChamado(chamado, usuario) {
   const resposta = comSla(chamado);
-  if (usuario?.perfil !== 'COMUM') return resposta;
+  if (usuario?.perfil !== 'USER') return resposta;
   delete resposta.sla;
   delete resposta.prazo_atendimento_em;
   delete resposta.prazo_resolucao_em;
   delete resposta.pausas_sla;
   delete resposta.documentos_vinculados;
+  delete resposta.ativo;
   return resposta;
 }
 
 async function listar_chamados(req, res) {
   try {
     const { perfil, id } = req.usuario;
-    const where = perfil === 'COMUM' ? { id_solicitante: id } : {};
-    const chamados = await prisma.cHAMADOS.findMany({ where, include: { solicitante: include.solicitante, ativo: include.ativo, tecnico: include.tecnico, pausas_sla: include.pausas_sla }, orderBy: { criado_em: 'desc' } });
+    const where = perfil === 'USER' ? { id_solicitante: id } : {};
+    const chamados = await prisma.cHAMADOS.findMany({ where, include: { aberto_por: include.aberto_por, solicitante: include.solicitante, local: include.local, ativo: include.ativo, tecnico: include.tecnico, pausas_sla: include.pausas_sla }, orderBy: { criado_em: 'desc' } });
     res.json(chamados.map(chamado => apresentarChamado(chamado, req.usuario)));
   } catch (err) {
     if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
@@ -46,7 +49,7 @@ async function buscarPorId(req, res) {
   try {
     const c = await prisma.cHAMADOS.findUnique({ where: { id: toId(req.params.id) }, include });
     if (!c) return res.status(404).json({ erro: 'Chamado não encontrado.' });
-    if (req.usuario.perfil === 'COMUM' && c.id_solicitante !== req.usuario.id) {
+    if (req.usuario.perfil === 'USER' && c.id_solicitante !== req.usuario.id) {
       return res.status(403).json({ erro: 'Acesso negado.' });
     }
     res.json(apresentarChamado(c, req.usuario));
@@ -58,9 +61,14 @@ async function buscarPorId(req, res) {
 
 async function criar_chamado(req, res) {
   try {
-    const { titulo, descricao, id_ativo, exige_confirmacao = false } = req.body;
+    const { titulo, descricao, id_local, id_ativo, exige_confirmacao = false } = req.body;
     if (typeof exige_confirmacao !== 'boolean') return res.status(400).json({ erro: 'Confirmação do solicitante deve ser verdadeiro ou falso.' });
-    const id_solicitante = req.usuario.id;
+    const id_aberto_por = req.usuario.id;
+    let id_solicitante = id_aberto_por;
+    if (req.body.id_solicitante !== undefined) {
+      if (req.usuario.perfil !== 'ADMIN') return res.status(403).json({ erro: 'Somente administradores podem escolher outro solicitante.' });
+      id_solicitante = toId(req.body.id_solicitante);
+    }
 
     if (!titulo || !descricao) {
       return res.status(400).json({ erro: 'Campos obrigatórios: titulo, descricao.' });
@@ -71,8 +79,13 @@ async function criar_chamado(req, res) {
     if (descricao.trim().length < 10) {
       return res.status(400).json({ erro: 'A descrição deve ter no mínimo 10 caracteres.' });
     }
+    if (!id_local) return res.status(400).json({ erro: 'Selecione a localização do problema.' });
+
+    const local = await prisma.lOCAIS.findUnique({ where: { id: toId(id_local) } });
+    if (!local || local.status !== 'ATIVO') return res.status(400).json({ erro: 'Selecione uma localização ativa.' });
 
     if (id_ativo) {
+      if (req.usuario.perfil === 'USER') return res.status(403).json({ erro: 'Seu perfil não pode vincular um ativo ao chamado.' });
       const ativo = await prisma.aTIVOS.findUnique({ where: { id: toId(id_ativo) } });
       if (!ativo) return res.status(400).json({ erro: 'Ativo não encontrado.' });
       if (['MANUTENCAO', 'EM_MANUTENCAO'].includes(ativo.status)) {
@@ -82,6 +95,10 @@ async function criar_chamado(req, res) {
 
     const solicitante = await prisma.uSUARIOS.findUnique({ where: { id: id_solicitante } });
     if (!solicitante) return res.status(400).json({ erro: 'Solicitante inválido.' });
+    const emNomeDeOutro = id_solicitante !== id_aberto_por;
+    if (emNomeDeOutro && solicitante.status !== 'ATIVO') return res.status(400).json({ erro: 'Selecione um solicitante ativo.' });
+    const autor = emNomeDeOutro ? await prisma.uSUARIOS.findUnique({ where: { id: id_aberto_por } }) : solicitante;
+    if (!autor) return res.status(400).json({ erro: 'Autor da abertura inválido.' });
 
     let prioridade = 'MEDIA';
     let categoria = 'OUTRO';
@@ -96,15 +113,15 @@ async function criar_chamado(req, res) {
     }
 
     const chamado = await prisma.cHAMADOS.create({
-      data: { titulo, descricao, exige_confirmacao, prioridade, categoria, ...prazosIniciais(prioridade), id_solicitante, id_ativo: id_ativo ? toId(id_ativo) : null },
+      data: { titulo, descricao, exige_confirmacao, prioridade, categoria, ...prazosIniciais(prioridade), id_solicitante, id_aberto_por, id_local: local.id, id_ativo: id_ativo ? toId(id_ativo) : null },
       include,
     });
 
     const historicoAbertura = await prisma.hISTORICO_CHAMADOS.create({
       data: {
         id_chamado: chamado.id,
-        id_usuario: id_solicitante,
-        comentario: `Chamado aberto por ${solicitante.nome}.${aviso ? ` ${aviso}` : ''}`,
+        id_usuario: id_aberto_por,
+        comentario: `Chamado aberto por ${autor.nome}${emNomeDeOutro ? ` em nome de ${solicitante.nome}` : ''}.${aviso ? ` ${aviso}` : ''}`,
         status_novo: 'ABERTO',
       },
       include: { usuario: { select: { nome: true } } },
@@ -124,7 +141,7 @@ async function criar_chamado(req, res) {
 
 async function atualizar_chamado(req, res) {
   try {
-    if (!['ADMIN', 'TECNICO'].includes(req.usuario.perfil)) return res.status(403).json({ erro: 'Acesso negado.' });
+    if (req.usuario.perfil !== 'ADMIN') return res.status(403).json({ erro: 'Acesso negado.' });
     const id = toId(req.params.id);
     const { prioridade, categoria, id_tecnico, comentario, ids_documentacoes } = req.body;
     let { status, motivo_espera } = req.body;
@@ -145,7 +162,7 @@ async function atualizar_chamado(req, res) {
       if (categoria && !CATEGORIAS_VALIDAS.includes(categoria)) throw falha(400, 'Categoria inválida.');
       if (id_tecnico) {
         const tecnico = await tx.uSUARIOS.findUnique({ where: { id: toId(id_tecnico) } });
-        if (!tecnico || !['TECNICO', 'ADMIN'].includes(tecnico.perfil) || tecnico.status !== 'ATIVO') throw falha(400, 'Selecione um técnico ou administrador ativo.');
+        if (!tecnico || !['DIRECTOR', 'ADMIN'].includes(tecnico.perfil) || tecnico.status !== 'ATIVO') throw falha(400, 'Selecione um usuário Director ou administrador ativo.');
       }
       const agora = new Date();
       const data = {};
@@ -229,7 +246,7 @@ async function responderConfirmacao(req, res) {
 async function dashboard(req, res) {
   try {
     const { perfil, id } = req.usuario;
-    const filtroSolicitante = perfil === 'COMUM' ? { id_solicitante: id } : {};
+    const filtroSolicitante = perfil === 'USER' ? { id_solicitante: id } : {};
     const [abertos, andamento, concluidos, totalAtivos, aguardando, chamadosSla] = await Promise.all([
       prisma.cHAMADOS.count({ where: { status: 'ABERTO', ...filtroSolicitante } }),
       prisma.cHAMADOS.count({ where: { status: 'EM_ANDAMENTO', ...filtroSolicitante } }),

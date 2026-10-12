@@ -1,42 +1,9 @@
+jest.mock('../prisma', () => ({ uSUARIOS: { findUnique: jest.fn() } }));
 const jwt = require('jsonwebtoken');
+const prisma = require('../prisma');
+const { autenticar, apenasAdminOuDirector, apenasAdmin, apenasAdminOuUser, SECRET } = require('../middlewares/auth');
+const routes = require('../routes');
 
-// Mock do módulo de auth antes de importar
-jest.mock('../middlewares/auth', () => {
-  const jwt = require('jsonwebtoken');
-  const SECRET = 'jwt_secret_para_testes';
-
-  function autenticar(req, res, next) {
-    const auth = req.headers.authorization;
-    if (!auth) return res.status(401).json({ erro: 'Token não fornecido.' });
-    const token = auth.split(' ')[1];
-    try {
-      req.usuario = jwt.verify(token, SECRET);
-      next();
-    } catch {
-      res.status(401).json({ erro: 'Token inválido.' });
-    }
-  }
-
-  function apenasAdminOuTecnico(req, res, next) {
-    if (!['ADMIN', 'TECNICO'].includes(req.usuario.perfil)) {
-      return res.status(403).json({ erro: 'Acesso negado. Perfil insuficiente.' });
-    }
-    next();
-  }
-
-  function apenasAdmin(req, res, next) {
-    if (req.usuario.perfil !== 'ADMIN') {
-      return res.status(403).json({ erro: 'Acesso negado. Apenas administradores.' });
-    }
-    next();
-  }
-
-  return { autenticar, apenasAdminOuTecnico, apenasAdmin, SECRET };
-});
-
-const { autenticar, apenasAdminOuTecnico, apenasAdmin } = require('../middlewares/auth');
-
-const SECRET = 'jwt_secret_para_testes';
 
 function mockRes() {
   const res = {};
@@ -49,86 +16,159 @@ function mockRes() {
 // autenticar
 // ─────────────────────────────────────────
 describe('Middleware: autenticar', () => {
-  test('deve chamar next() com token válido', () => {
+  beforeEach(() => prisma.uSUARIOS.findUnique.mockResolvedValue({ id: 1n, perfil: 'ADMIN', status: 'ATIVO' }));
+
+  test('deve chamar next() com token válido', async () => {
     const token = jwt.sign({ id: 1, perfil: 'ADMIN' }, SECRET);
     const req = { headers: { authorization: `Bearer ${token}` } };
     const res = mockRes();
     const next = jest.fn();
 
-    autenticar(req, res, next);
+    await autenticar(req, res, next);
 
     expect(next).toHaveBeenCalledTimes(1);
     expect(req.usuario).toBeDefined();
-    expect(req.usuario.id).toBe(1);
+    expect(req.usuario.id).toBe(1n);
+    expect(req.usuario.perfil).toBe('ADMIN');
   });
 
-  test('deve retornar 401 sem header Authorization', () => {
+  test('deve retornar 401 sem header Authorization', async () => {
     const req = { headers: {} };
     const res = mockRes();
     const next = jest.fn();
 
-    autenticar(req, res, next);
+    await autenticar(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith({ erro: 'Token não fornecido.' });
     expect(next).not.toHaveBeenCalled();
   });
 
-  test('deve retornar 401 com token inválido', () => {
+  test('deve retornar 401 com token inválido', async () => {
     const req = { headers: { authorization: 'Bearer token_invalido_xpto' } };
     const res = mockRes();
     const next = jest.fn();
 
-    autenticar(req, res, next);
+    await autenticar(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json).toHaveBeenCalledWith({ erro: 'Token inválido.' });
+    expect(res.json).toHaveBeenCalledWith({ erro: 'Token inválido ou malformado.' });
     expect(next).not.toHaveBeenCalled();
   });
 
-  test('deve retornar 401 com token expirado', () => {
+  test('deve retornar 401 com token expirado', async () => {
     const token = jwt.sign({ id: 1, perfil: 'ADMIN' }, SECRET, { expiresIn: '0s' });
     const req = { headers: { authorization: `Bearer ${token}` } };
     const res = mockRes();
     const next = jest.fn();
 
-    autenticar(req, res, next);
+    await autenticar(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
+  });
+  test('usa o perfil atual do banco, não o do token', async () => {
+    prisma.uSUARIOS.findUnique.mockResolvedValue({ id: 1n, perfil: 'USER', status: 'ATIVO' });
+    const token = jwt.sign({ id: 1, perfil: 'ADMIN' }, SECRET);
+    const req = { headers: { authorization: ['Bearer', token].join(' ') } };
+    const next = jest.fn();
+
+    await autenticar(req, mockRes(), next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(req.usuario.perfil).toBe('USER');
+  });
+
+  test('deve retornar 401 para usuário inativo', async () => {
+    prisma.uSUARIOS.findUnique.mockResolvedValue({ id: 1n, perfil: 'ADMIN', status: 'INATIVO' });
+    const token = jwt.sign({ id: 1, perfil: 'ADMIN' }, SECRET);
+    const req = { headers: { authorization: ['Bearer', token].join(' ') } };
+    const res = mockRes();
+    const next = jest.fn();
+
+    await autenticar(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  test('deve retornar 401 para usuário inexistente', async () => {
+    prisma.uSUARIOS.findUnique.mockResolvedValue(null);
+    const token = jwt.sign({ id: 1, perfil: 'ADMIN' }, SECRET);
+    const req = { headers: { authorization: ['Bearer', token].join(' ') } };
+    const res = mockRes();
+    const next = jest.fn();
+
+    await autenticar(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  test('deve retornar 500 se a consulta ao banco falhar', async () => {
+    prisma.uSUARIOS.findUnique.mockRejectedValue(new Error('db'));
+    const token = jwt.sign({ id: 1, perfil: 'ADMIN' }, SECRET);
+    const req = { headers: { authorization: ['Bearer', token].join(' ') } };
+    const res = mockRes();
+    const next = jest.fn();
+
+    await autenticar(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(500);
     expect(next).not.toHaveBeenCalled();
   });
 });
 
 // ─────────────────────────────────────────
-// apenasAdminOuTecnico
+// perfil e compatibilidade
 // ─────────────────────────────────────────
-describe('Middleware: apenasAdminOuTecnico', () => {
-  test('deve permitir perfil ADMIN', () => {
-    const req = { usuario: { perfil: 'ADMIN' } };
-    const res = mockRes();
-    const next = jest.fn();
+describe('Middleware: perfis de acesso', () => {
+  beforeEach(() => jest.clearAllMocks());
 
-    apenasAdminOuTecnico(req, res, next);
+  test.each([['GERAL', 'ADMIN'], ['INTERMEDIARIO', 'DIRECTOR'], ['BAIXO', 'USER'], ['TECNICO', 'DIRECTOR'], ['COMUM', 'USER']])(
+    'normaliza token legado %s para %s',
+    async (perfilAntigo, perfilNovo) => {
+      prisma.uSUARIOS.findUnique.mockResolvedValue({ id: 1n, perfil: perfilAntigo, status: 'ATIVO' });
+      const token = jwt.sign({ id: 1, perfil: perfilAntigo }, SECRET);
+      const req = { headers: { authorization: `Bearer ${token}` } };
+      const res = mockRes();
+      const next = jest.fn();
 
-    expect(next).toHaveBeenCalledTimes(1);
+      await autenticar(req, res, next);
+
+      expect(req.usuario.perfil).toBe(perfilNovo);
+      expect(next).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test('Admin e Director acessam relatórios', () => {
+    for (const perfil of ['ADMIN', 'DIRECTOR']) {
+      const req = { usuario: { perfil } };
+      const next = jest.fn();
+      apenasAdminOuDirector(req, mockRes(), next);
+      expect(next).toHaveBeenCalledTimes(1);
+    }
   });
 
-  test('deve permitir perfil TECNICO', () => {
-    const req = { usuario: { perfil: 'TECNICO' } };
-    const res = mockRes();
-    const next = jest.fn();
+  test('a rota de listagem de ativos exige perfil Admin ou Director', () => {
+    const rotaAtivos = routes.stack.find(layer =>
+      layer.route?.path === '/ativos' && layer.route.methods.get
+    );
 
-    apenasAdminOuTecnico(req, res, next);
-
-    expect(next).toHaveBeenCalledTimes(1);
+    expect(rotaAtivos).toBeDefined();
+    expect(rotaAtivos.route.stack.map(({ handle }) => handle)).toEqual([
+      autenticar,
+      apenasAdminOuDirector,
+      expect.any(Function),
+    ]);
   });
 
-  test('deve bloquear perfil COMUM', () => {
-    const req = { usuario: { perfil: 'COMUM' } };
+  test('Baixo não acessa recursos de consulta avançada', () => {
+    const req = { usuario: { perfil: 'USER' } };
     const res = mockRes();
     const next = jest.fn();
 
-    apenasAdminOuTecnico(req, res, next);
+    apenasAdminOuDirector(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(403);
     expect(res.json).toHaveBeenCalledWith({ erro: 'Acesso negado. Perfil insuficiente.' });
@@ -137,10 +177,10 @@ describe('Middleware: apenasAdminOuTecnico', () => {
 });
 
 // ─────────────────────────────────────────
-// apenasAdmin
+// apenasGeral e operações de chamado mutáveis
 // ─────────────────────────────────────────
-describe('Middleware: apenasAdmin', () => {
-  test('deve permitir perfil ADMIN', () => {
+describe('Middleware: acesso geral', () => {
+  test('deve permitir perfil Geral', () => {
     const req = { usuario: { perfil: 'ADMIN' } };
     const res = mockRes();
     const next = jest.fn();
@@ -150,8 +190,8 @@ describe('Middleware: apenasAdmin', () => {
     expect(next).toHaveBeenCalledTimes(1);
   });
 
-  test('deve bloquear perfil TECNICO', () => {
-    const req = { usuario: { perfil: 'TECNICO' } };
+  test.each(['DIRECTOR', 'USER'])('deve bloquear perfil %s de edição', perfil => {
+    const req = { usuario: { perfil } };
     const res = mockRes();
     const next = jest.fn();
 
@@ -162,13 +202,15 @@ describe('Middleware: apenasAdmin', () => {
     expect(next).not.toHaveBeenCalled();
   });
 
-  test('deve bloquear perfil COMUM', () => {
-    const req = { usuario: { perfil: 'COMUM' } };
+  test('somente Geral e Baixo podem confirmar encerramento', () => {
+    for (const perfil of ['ADMIN', 'USER']) {
+      const next = jest.fn();
+      apenasAdminOuUser({ usuario: { perfil } }, mockRes(), next);
+      expect(next).toHaveBeenCalledTimes(1);
+    }
     const res = mockRes();
     const next = jest.fn();
-
-    apenasAdmin(req, res, next);
-
+    apenasAdminOuUser({ usuario: { perfil: 'DIRECTOR' } }, res, next);
     expect(res.status).toHaveBeenCalledWith(403);
     expect(next).not.toHaveBeenCalled();
   });

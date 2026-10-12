@@ -79,7 +79,7 @@ async function criar_usuario(req, res) {
 
     const hash = await hashPassword(senha);
     const u = await prisma.uSUARIOS.create({
-      data: { nome, email, username, senha_hash: hash, perfil: perfil || 'COMUM', status: status || 'ATIVO' },
+      data: { nome, email, username, senha_hash: hash, perfil: perfil || 'USER', status: status || 'ATIVO' },
       select: { id: true, nome: true, email: true, username: true, perfil: true, status: true },
     });
     res.status(201).json(u);
@@ -150,4 +150,15 @@ async function inativar_usuario(req, res) {
   }
 }
 
-module.exports = { listar: listar_usuarios, buscarPorId, criar: criar_usuario, atualizar: atualizar_usuario, inativar: inativar_usuario };
+async function reativar_usuario(req, res) {
+  try {
+    const idAlvo = toId(req.params.id);
+    await prisma.uSUARIOS.update({ where: { id: idAlvo }, data: { status: 'ATIVO' } });
+    res.json({ mensagem: 'Usuário reativado.' });
+  } catch (err) {
+    if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
+    res.status(404).json({ erro: 'Usuário não encontrado.' });
+  }
+}
+
+module.exports = { listar: listar_usuarios, buscarPorId, criar: criar_usuario, atualizar: atualizar_usuario, inativar: inativar_usuario, reativar: reativar_usuario };

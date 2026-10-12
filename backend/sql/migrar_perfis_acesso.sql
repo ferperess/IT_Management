@@ -1,0 +1,18 @@
+BEGIN;
+
+UPDATE public."USUARIOS"
+SET perfil = CASE perfil
+  WHEN 'TECNICO' THEN 'DIRECTOR'
+  WHEN 'COMUM' THEN 'USER'
+END
+WHERE perfil IN ('TECNICO', 'COMUM');
+
+ALTER TABLE public."USUARIOS"
+  ALTER COLUMN perfil SET DEFAULT 'USER';
+
+COMMIT;
+
+SELECT perfil, COUNT(*) AS quantidade
+FROM public."USUARIOS"
+GROUP BY perfil
+ORDER BY perfil;

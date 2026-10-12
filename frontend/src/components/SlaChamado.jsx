@@ -15,7 +15,7 @@ export default function SlaChamado({ chamado, compacto = false }) {
   const [agora, setAgora] = useState(Date.now());
   useEffect(() => { const timer = setInterval(() => setAgora(Date.now()), 60000); return () => clearInterval(timer); }, []);
   const sla = chamado.sla;
-  if (usuario?.perfil === 'COMUM') return null;
+  if (usuario?.perfil === 'USER') return null;
   function item(tipo, titulo) {
     const valor = sla?.[tipo];
     let situacao = valor?.situacao || 'NAO_DEFINIDO';

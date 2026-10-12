@@ -34,7 +34,7 @@ export default function Login() {
       <div className="login-box">
         <h1>Sistema de Gestão de TI</h1>
         <p className="subtitle">Acesso restrito aos colaboradores</p>
-        {erro && <div className="alert alert-erro">{erro}</div>}
+        {erro && <div className="alert alert-erro" role="alert">{erro}</div>}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="login-campo-1">E-mail</label>
@@ -58,7 +58,7 @@ export default function Login() {
               required
             />
           </div>
-          <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
+          <button type="submit" className="btn btn-primary" disabled={loading}>
             {loading ? 'Entrando...' : 'Entrar no Sistema'}
           </button>
         </form>
