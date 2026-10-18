@@ -289,7 +289,7 @@ export default function Ativos() {
                   <div><strong>Equipamento</strong><span>{ativoEditado?.nome}</span></div>
                   <div><strong>Patrimônio</strong><span>{ativoEditado?.patrimonio || '—'}</span></div>
                   <div><strong>Tipo</strong><span>{tipoLabel[ativoEditado?.tipo] || ativoEditado?.tipo}</span></div>
-                  <div><strong>Data de aquisição</strong><span>{ativoEditado?.data_aquisicao ? new Date(ativoEditado.data_aquisicao).toLocaleDateString('pt-BR') : '—'}</span></div>
+                  <div><strong>Data de aquisição</strong><span>{ativoEditado?.data_aquisicao ? ativoEditado.data_aquisicao.slice(0, 10).split('-').reverse().join('/') : '—'}</span></div>
                 </div>
               ) : (
                 <>
@@ -299,7 +299,7 @@ export default function Ativos() {
                   </div>
                   <div className="form-group">
                     <label htmlFor="ativos-patrimonio">Patrimônio</label>
-                    <input id="ativos-patrimonio" className="form-control" placeholder="Ex: 001234" value={form.patrimonio} onChange={set('patrimonio')} required />
+                    <input id="ativos-patrimonio" className="form-control" placeholder="Ex: 001234" value={form.patrimonio} onChange={set('patrimonio')} required pattern=".*\S.*" title="Informe o patrimônio; espaços em branco não são aceitos." />
                   </div>
                   <div className="form-group">
                     <label htmlFor="ativos-campo-2">Tipo</label>

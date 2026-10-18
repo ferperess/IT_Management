@@ -25,6 +25,10 @@ async function criar_ativo(req, res) {
     if (!nome || !tipo || !id_local) {
       return res.status(400).json({ erro: 'Campos obrigatórios: nome, tipo, id_local.' });
     }
+    if (!patrimonio?.trim()) return res.status(400).json({ erro: 'Patrimônio é obrigatório.' });
+    const patrimonioNormalizado = patrimonio.trim();
+    const existente = await prisma.aTIVOS.findFirst({ where: { patrimonio: patrimonioNormalizado }, select: { nome: true, patrimonio: true } });
+    if (existente) return res.status(409).json({ erro: `Ativo ${existente.nome} já possui o patrimônio ${existente.patrimonio}` });
 
     // Validação de tipo
     if (!TIPOS_ATIVO_VALIDOS.includes(tipo)) {
@@ -46,7 +50,7 @@ async function criar_ativo(req, res) {
     const ativo = await prisma.aTIVOS.create({
       data: {
         nome,
-        patrimonio: patrimonio?.trim() || null,
+        patrimonio: patrimonioNormalizado,
         tipo,
         id_local: local.id,
         data_aquisicao: data_aquisicao ? new Date(data_aquisicao) : null,
@@ -56,6 +60,14 @@ async function criar_ativo(req, res) {
     res.status(201).json(ativo);
   } catch (err) {
     if (err.code === 'INVALID_ID') return res.status(400).json({ erro: err.message });
+    if (err.code === 'P2002') {
+      // Uma segunda requisição pode ter gravado o mesmo patrimônio após a consulta.
+      try {
+        const existente = await prisma.aTIVOS.findFirst({ where: { patrimonio: req.body.patrimonio.trim() }, select: { nome: true, patrimonio: true } });
+        if (existente) return res.status(409).json({ erro: `Ativo ${existente.nome} já possui o patrimônio ${existente.patrimonio}` });
+      } catch { /* Mantém o erro de conflito mesmo se a consulta falhar. */ }
+      return res.status(409).json({ erro: 'Este patrimônio já foi cadastrado. Verifique o número informado.' });
+    }
     res.status(500).json({ erro: 'Erro ao criar ativo.' });
   }
 }
