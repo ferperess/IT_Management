@@ -51,7 +51,6 @@ model ATIVOS {
   tipo           String @db.VarChar
   id_local       BigInt?
   local          LOCAIS? @relation(fields: [id_local], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  responsavel    String? @db.VarChar
   data_aquisicao DateTime? @db.Timestamptz(6)
   status         String    @default("ATIVO") @db.VarChar // ATIVO | MANUTENCAO | INATIVO
   criado_em      DateTime  @default(now()) @db.Timestamptz(6)
