@@ -47,7 +47,7 @@ model LOCAIS {
 model ATIVOS {
   id             BigInt       @id @default(autoincrement())
   nome           String @db.VarChar
-  patrimonio     String? @db.VarChar
+  patrimonio     String? @unique @db.VarChar
   tipo           String @db.VarChar
   localizacao    String? @db.VarChar
   id_local       BigInt?

@@ -3,6 +3,7 @@ jest.mock('../prisma', () => ({
   dOCUMENTACOES: { findFirst: jest.fn() },
   lOCAIS: { findUnique: jest.fn(), findMany: jest.fn() },
   aTIVOS: {
+    findFirst: jest.fn(),
     findUnique: jest.fn(),
     findMany: jest.fn(),
     create: jest.fn(),
@@ -18,6 +19,7 @@ const { listar, criar, atualizar, historico, remover } = require('../controllers
 const { listar: listarLocais } = require('../controllers/locaisController');
 
 beforeEach(() => {
+  prisma.aTIVOS.findFirst.mockResolvedValue(null);
   prisma.lOCAIS.findUnique.mockResolvedValue({ id: 1n, nome: 'Secretaria', status: 'ATIVO' });
   prisma.aTIVOS.findUnique.mockResolvedValue({
     id: 1n, id_local: 1n, status: 'ATIVO', local: { id: 1n, nome: 'Secretaria' },
@@ -72,9 +74,9 @@ describe('ativosController: criar', () => {
   });
 
   test('deve criar ativo com dados válidos', async () => {
-    const novoAtivo = { id: 1, nome: 'Notebook', tipo: 'COMPUTADOR', id_local: '1', status: 'ATIVO' };
+    const novoAtivo = { id: 1, nome: 'Notebook', tipo: 'COMPUTADOR', patrimonio: '001234', id_local: '1', status: 'ATIVO' };
     prisma.aTIVOS.create.mockResolvedValue(novoAtivo);
-    const req = { body: { nome: 'Notebook', tipo: 'COMPUTADOR', id_local: '1' } };
+    const req = { body: { nome: 'Notebook', tipo: 'COMPUTADOR', patrimonio: '001234', id_local: '1' } };
     const res = mockRes();
 
     await criar(req, res);
@@ -84,9 +86,9 @@ describe('ativosController: criar', () => {
   });
 
   test('aceita NOTEBOOK e normaliza o status legado de manutenção', async () => {
-    const novoAtivo = { id: 2, nome: 'Notebook', tipo: 'NOTEBOOK', id_local: '1', status: 'MANUTENCAO' };
+    const novoAtivo = { id: 2, nome: 'Notebook', tipo: 'NOTEBOOK', patrimonio: '001234', id_local: '1', status: 'MANUTENCAO' };
     prisma.aTIVOS.create.mockResolvedValue(novoAtivo);
-    const req = { body: { nome: 'Notebook', tipo: 'NOTEBOOK', id_local: '1', status: 'EM_MANUTENCAO' } };
+    const req = { body: { nome: 'Notebook', tipo: 'NOTEBOOK', patrimonio: '001234', id_local: '1', status: 'EM_MANUTENCAO' } };
     const res = mockRes();
 
     await criar(req, res);
@@ -97,13 +99,42 @@ describe('ativosController: criar', () => {
 
   test('deve retornar 500 em erro de banco', async () => {
     prisma.aTIVOS.create.mockRejectedValue(new Error('DB error'));
-    const req = { body: { nome: 'Notebook', tipo: 'COMPUTADOR', id_local: '1' } };
+    const req = { body: { nome: 'Notebook', tipo: 'COMPUTADOR', patrimonio: '001234', id_local: '1' } };
     const res = mockRes();
 
     await criar(req, res);
 
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({ erro: 'Erro ao criar ativo.' });
+  });
+});
+
+describe('validação de patrimônio', () => {
+  beforeEach(() => jest.clearAllMocks());
+  const body = { nome: 'PC novo', tipo: 'COMPUTADOR', id_local: '1', patrimonio: ' 001234 ' };
+  test.each([undefined, '', '   '])('patrimônio obrigatório: %s', async patrimonio => {
+    const res = mockRes();
+    await criar({ body: { ...body, patrimonio } }, res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ erro: 'Patrimônio é obrigatório.' });
+    expect(prisma.aTIVOS.create).not.toHaveBeenCalled();
+  });
+  test('informa nome do ativo que já possui o patrimônio e não grava', async () => {
+    prisma.aTIVOS.findFirst.mockResolvedValue({ nome: 'Monitor Secretaria', patrimonio: '001234' });
+    const res = mockRes();
+    await criar({ body }, res);
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({ erro: 'Ativo Monitor Secretaria já possui o patrimônio 001234' });
+    expect(prisma.aTIVOS.findFirst).toHaveBeenCalledWith({ where: { patrimonio: '001234' }, select: { nome: true, patrimonio: true } });
+    expect(prisma.aTIVOS.create).not.toHaveBeenCalled();
+  });
+  test('trata conflito de cadastros simultâneos retornado pelo índice único', async () => {
+    prisma.aTIVOS.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ nome: 'Outro PC', patrimonio: '001234' });
+    prisma.aTIVOS.create.mockRejectedValue({ code: 'P2002' });
+    const res = mockRes();
+    await criar({ body }, res);
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({ erro: 'Ativo Outro PC já possui o patrimônio 001234' });
   });
 });
 
@@ -232,7 +263,7 @@ describe('locais cadastrados no banco', () => {
   test.each([null, { id: 2n, status: 'INATIVO' }])('impede cadastro em local inexistente ou inativo: %s', async local => {
     prisma.lOCAIS.findUnique.mockResolvedValue(local);
     const res = mockRes();
-    await criar({ body: { nome: 'PC', tipo: 'COMPUTADOR', id_local: '2' } }, res);
+    await criar({ body: { nome: 'PC', tipo: 'COMPUTADOR', patrimonio: '001234', id_local: '2' } }, res);
     expect(res.status).toHaveBeenCalledWith(400);
     expect(prisma.aTIVOS.create).not.toHaveBeenCalled();
   });

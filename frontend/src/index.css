@@ -479,6 +479,9 @@ textarea.form-control { resize: vertical; }
 .table-scroll, .chamados-page .ch-table-wrap { width: 100%; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
 .table-scroll .cps-table { min-width: 640px; }
 .cps-table td { overflow-wrap: anywhere; max-width: 320px; }
+/* Cabeçalhos podem quebrar nos espaços, nunca no meio de uma palavra. */
+.cps-table th { overflow-wrap: normal; word-break: normal; hyphens: none; }
+.document-results { flex-wrap: wrap; }
 .nav-toggle, .nav-logout { min-height: 44px; padding: 10px 14px; border: 1px solid var(--cps-borda); border-radius: 8px; background: #fff; color: #344154; font-size: 14px; font-weight: bold; cursor: pointer; }
 .nav-toggle { display: none; }
 .nav-logout:hover { background: var(--cps-vermelho); color: #fff; }
@@ -515,8 +518,10 @@ textarea.form-control { resize: vertical; }
   .cps-table-stack thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .cps-table-stack, .cps-table-stack tbody, .cps-table-stack tr, .cps-table-stack td { display: block; width: 100%; }
   .cps-table-stack tr { padding: 10px 0; border-bottom: 2px solid #cdd5df; }
-  .cps-table-stack td { display: grid; grid-template-columns: minmax(96px, 36%) minmax(0, 1fr); gap: 8px; padding: 6px 4px; border: 0; overflow-wrap: anywhere; }
-  .cps-table-stack td[data-label]::before { content: attr(data-label); font-weight: bold; color: #344154; }
+  .cps-table-stack td { display: grid; grid-template-columns: minmax(96px, 36%) minmax(0, 1fr); gap: 8px; padding: 6px 4px; border: 0; overflow-wrap: anywhere; max-width: none; }
+  .cps-table-stack td[data-label]::before { content: attr(data-label); font-weight: bold; color: #344154; overflow-wrap: normal; word-break: normal; }
+  .cps-table-stack td > * { min-width: 0; }
+  .report-period-group { min-width: 0; }
   .cps-table-stack td.table-empty-state { display: block; }
   .document-list-actions { width: 100%; align-items: stretch; flex-direction: column; }
   .document-list-actions > .btn { width: 100%; }
@@ -708,7 +713,7 @@ button:disabled { cursor: not-allowed; }
 .related-docs .btn { margin: 8px 0; max-width: 100%; white-space: normal; }
 .related-docs a { color: #a30000; display: block; }
 .report-sla-grid > div { min-width: 0; }
-@media (max-width: 760px) {
+@media (max-width: 960px) {
   .report-breakdowns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .reports-lower { grid-template-columns: minmax(0, 1fr); }
 }
