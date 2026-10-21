@@ -7,6 +7,7 @@ import usePageTitle from '../hooks/usePageTitle';
 
 const formVazio = { titulo: '', descricao: '', link_externo: '', id_ativo: '' };
 const filtrosDocumentacaoVazios = { titulo: '', ativo: '', inicio: '', fim: '' };
+const tamanhoMaximoArquivo = 5 * 1024 * 1024;
 const normalizar = valor => String(valor ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
 function validarLinkExterno(valor) {
@@ -52,6 +53,7 @@ export default function Documentacao() {
   const navigate = useNavigate();
   const cadastroDocumento = location.pathname === '/documentacao/cadastro';
   const edicaoDocumento = location.pathname === '/documentacao/edicao';
+  const ativosDisponiveis = ativos.filter(a => a.status !== 'INATIVO');
 
   usePageTitle('Documentação');
 
@@ -152,6 +154,11 @@ export default function Documentacao() {
   async function handleSubmit(e) {
     e.preventDefault();
     if (salvando) return;
+    if (arquivo && arquivo.size > tamanhoMaximoArquivo) {
+      setErro('Arquivo muito grande. O limite é 5 MB.');
+      setSucesso('');
+      return;
+    }
     setSalvando(true);
     setErro(''); setSucesso('');
     try {
@@ -174,7 +181,9 @@ export default function Documentacao() {
       if (cadastroDocumento || edicaoDocumento) navigate('/documentacao', { replace: true });
       carregar();
     } catch (err) {
-      setErro(err.response?.data?.erro || 'Erro ao salvar documento.');
+      setErro(err.response?.status === 413
+        ? 'Arquivo muito grande. O limite é 5 MB.'
+        : err.response?.data?.erro || 'Erro ao salvar documento.');
     } finally { setSalvando(false); }
   }
 
@@ -264,7 +273,7 @@ export default function Documentacao() {
                     <label htmlFor="documentacao-campo-3">Ativo Relacionado (Opcional)</label>
                     <select id="documentacao-campo-3" className="form-control" value={form.id_ativo} onChange={set('id_ativo')}>
                       <option value="">— Nenhum —</option>
-                      {ativos.map(a => (
+                      {ativosDisponiveis.map(a => (
                         <option key={a.id} value={a.id}>{a.nome} ({a.tipo})</option>
                       ))}
                     </select>
@@ -277,7 +286,8 @@ export default function Documentacao() {
                   </div>
                   <div className="form-group">
                     <label htmlFor="documentacao-campo-6">Arquivo (PDF, DOC, DOCX, JPG ou PNG)</label>
-                    <input ref={arquivoInput} id="documentacao-campo-6" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="form-control" style={{ padding: 7 }} onChange={e => setArquivo(e.target.files[0] || null)} required={!editandoId} />
+                    <input ref={arquivoInput} id="documentacao-campo-6" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="form-control" style={{ padding: 7 }} onChange={e => { setArquivo(e.target.files[0] || null); setErro(''); }} required={!editandoId} />
+                    <small className="document-help-text">Tamanho máximo do arquivo: 5 MB.</small>
                     {editandoId && <small className="document-help-text">Deixe em branco para manter o arquivo atual.</small>}
                   </div>
                 </div>

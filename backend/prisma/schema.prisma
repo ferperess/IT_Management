@@ -49,10 +49,8 @@ model ATIVOS {
   nome           String @db.VarChar
   patrimonio     String? @unique @db.VarChar
   tipo           String @db.VarChar
-  localizacao    String? @db.VarChar
   id_local       BigInt?
   local          LOCAIS? @relation(fields: [id_local], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  numero_serie   String? @db.VarChar
   responsavel    String? @db.VarChar
   data_aquisicao DateTime? @db.Timestamptz(6)
   status         String    @default("ATIVO") @db.VarChar // ATIVO | MANUTENCAO | INATIVO
