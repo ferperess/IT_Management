@@ -7,6 +7,7 @@ const ativosCtrl = require('../controllers/ativosController');
 const locaisCtrl = require('../controllers/locaisController');
 const chamadosCtrl = require('../controllers/chamadosController');
 const docsCtrl = require('../controllers/documentacoesController');
+const categoriasDocCtrl = require('../controllers/categoriasDocController');
 
 const router = express.Router();
 const upload = multer({
@@ -54,5 +55,9 @@ router.get('/documentacoes/:id/download', autenticar, apenasAdminOuDirector, doc
 router.post('/documentacoes', autenticar, apenasAdmin, ...uploadDocumento, docsCtrl.criar);
 router.put('/documentacoes/:id', autenticar, apenasAdmin, ...uploadDocumento, docsCtrl.atualizar);
 router.delete('/documentacoes/:id', autenticar, apenasAdmin, docsCtrl.remover);
+
+router.get('/categorias-doc', autenticar, apenasAdmin, categoriasDocCtrl.listar);
+router.post('/categorias-doc', autenticar, apenasAdmin, categoriasDocCtrl.criar);
+router.patch('/categorias-doc/inativar', autenticar, apenasAdmin, categoriasDocCtrl.inativar);
 
 module.exports = router;
