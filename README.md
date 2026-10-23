@@ -1,9 +1,5 @@
 # Gestão de TI (IT_Management)
 
-### Patrimônio obrigatório e único
-
-Antes de usar esta versão, aplique `backend/sql/ativos_patrimonio_unico.sql` no Supabase e gere novamente o Prisma Client (`npx prisma generate`). O script normaliza espaços nas extremidades e cria um índice único em `ATIVOS.patrimonio`. Se encontrar duplicados, interrompe a transação sem alterar os dados; a consulta no final do arquivo ajuda a localizar os registros para revisão. Cadastros antigos sem patrimônio continuam válidos, mas novos cadastros exigem um valor não vazio. Em caso de duplicidade, a API retorna o nome do ativo existente e o formulário mantém os dados digitados.
-
 Aplicação web para gerenciamento de chamados de TI, ativos, locais e documentação, com autenticação por perfil e acompanhamento de SLA.
 
 ## Requisitos
