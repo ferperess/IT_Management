@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import usePageTitle from '../hooks/usePageTitle';
 
-const formVazio = { titulo: '', descricao: '', link_externo: '', id_ativo: '' };
+const formVazio = { titulo: '', descricao: '', link_externo: '', id_ativo: '', id_categoria: '' };
 const filtrosDocumentacaoVazios = { titulo: '', ativo: '', inicio: '', fim: '' };
 const tamanhoMaximoArquivo = 5 * 1024 * 1024;
 const normalizar = valor => String(valor ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -18,6 +18,26 @@ function validarLinkExterno(valor) {
   } catch {
     return '';
   }
+}
+
+function ModalCategoria({ titulo, onClose, children }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const modal = ref.current;
+    modal.showModal();
+    document.body.style.overflow = 'hidden';
+    return () => {
+      modal.close();
+      document.body.style.overflow = '';
+    };
+  }, []);
+  return (
+    <dialog ref={ref} className="document-delete-dialog" aria-label={titulo} onCancel={e => { e.preventDefault(); onClose(); }}>
+      <h2>{titulo}</h2>
+      <hr className="divider" />
+      {children}
+    </dialog>
+  );
 }
 
 export default function Documentacao() {
@@ -42,6 +62,14 @@ export default function Documentacao() {
   const [documentoExcluir, setDocumentoExcluir] = useState(null);
   const [excluindo, setExcluindo] = useState(false);
   const [erroExclusao, setErroExclusao] = useState('');
+  const [categoriasAtivas, setCategoriasAtivas] = useState([]);
+  const [categoriaModal, setCategoriaModal] = useState(null);
+  const [categorias, setCategorias] = useState([]);
+  const [novaCategoria, setNovaCategoria] = useState('');
+  const [categoriasSelecionadas, setCategoriasSelecionadas] = useState([]);
+  const [carregandoCategorias, setCarregandoCategorias] = useState(false);
+  const [processandoCategoria, setProcessandoCategoria] = useState(false);
+  const [erroCategoria, setErroCategoria] = useState('');
   const exclusaoDialog = useRef(null);
   const exclusaoBotao = useRef(null);
   const travaExclusao = useRef(false);
@@ -69,7 +97,17 @@ export default function Documentacao() {
     setCarregandoLista(false);
   }
 
+  async function carregarCategorias() {
+    try {
+      const resp = await api.get('/categorias-doc');
+      setCategoriasAtivas(resp.data);
+    } catch {
+      setCategoriasAtivas([]);
+    }
+  }
+
   useEffect(() => { carregar(); }, []);
+  useEffect(() => { if (podeEditar) carregarCategorias(); }, [podeEditar]);
   useEffect(() => {
     if (!documentoExcluir) return;
     const modal = exclusaoDialog.current;
@@ -140,6 +178,7 @@ export default function Documentacao() {
       descricao: d.descricao || '',
       link_externo: d.link_externo || '',
       id_ativo: d.id_ativo || '',
+      id_categoria: d.id_categoria ? String(d.id_categoria) : '',
     });
     setArquivo(null);
     if (arquivoInput.current) arquivoInput.current.value = '';
@@ -167,6 +206,7 @@ export default function Documentacao() {
       fd.append('descricao', form.descricao);
       fd.append('link_externo', form.link_externo);
       if (!editandoId) fd.append('id_ativo', form.id_ativo);
+      fd.append('id_categoria', form.id_categoria);
       if (arquivo) fd.append('arquivo', arquivo);
 
       if (editandoId) {
@@ -226,12 +266,81 @@ export default function Documentacao() {
     } finally { travaExclusao.current = false; setExcluindo(false); }
   }
 
+  function fecharCategorias() {
+    if (processandoCategoria) return;
+    setCategoriaModal(null);
+    setNovaCategoria('');
+    setCategoriasSelecionadas([]);
+    setErroCategoria('');
+  }
+
+  function voltarMenuCategorias() {
+    if (processandoCategoria) return;
+    setCategoriaModal('menu');
+    setNovaCategoria('');
+    setCategoriasSelecionadas([]);
+    setErroCategoria('');
+  }
+
+  function abrirCadastroCategoria() {
+    setNovaCategoria(''); setErroCategoria('');
+    setCategoriaModal('cadastro');
+  }
+
+  async function abrirInativacaoCategoria() {
+    setCategoriasSelecionadas([]); setErroCategoria('');
+    setCategorias([]);
+    setCategoriaModal('inativar');
+    setCarregandoCategorias(true);
+    try {
+      const resp = await api.get('/categorias-doc');
+      setCategorias(resp.data);
+    } catch (err) {
+      setErroCategoria(err.response?.data?.erro || 'Não foi possível carregar as categorias.');
+    } finally { setCarregandoCategorias(false); }
+  }
+
+  async function cadastrarCategoria(e) {
+    e.preventDefault();
+    if (processandoCategoria) return;
+    setProcessandoCategoria(true); setErroCategoria('');
+    try {
+      await api.post('/categorias-doc', { nome: novaCategoria });
+      setProcessandoCategoria(false);
+      fecharCategorias();
+      carregarCategorias();
+      setErro(''); setSucesso('Categoria cadastrada!');
+    } catch (err) {
+      setErroCategoria(err.response?.data?.erro || 'Erro ao cadastrar categoria.');
+      setProcessandoCategoria(false);
+    }
+  }
+
+  async function inativarCategorias() {
+    if (processandoCategoria || !categoriasSelecionadas.length) return;
+    setProcessandoCategoria(true); setErroCategoria('');
+    try {
+      await api.patch('/categorias-doc/inativar', { ids: categoriasSelecionadas });
+      setProcessandoCategoria(false);
+      fecharCategorias();
+      carregarCategorias();
+      setForm(f => categoriasSelecionadas.includes(f.id_categoria) ? { ...f, id_categoria: '' } : f);
+      setErro(''); setSucesso('Categoria(s) inativada(s)!');
+    } catch (err) {
+      setErroCategoria(err.response?.data?.erro || 'Erro ao inativar categorias.');
+      setProcessandoCategoria(false);
+    }
+  }
+
+  const alternarCategoria = id => setCategoriasSelecionadas(sel => sel.includes(id) ? sel.filter(x => x !== id) : [...sel, id]);
+
   function fmtData(d) {
     return d ? new Date(d).toLocaleDateString('pt-BR') : '-';
   }
 
   const linkExternoSeguro = lendoDoc ? validarLinkExterno(lendoDoc.link_externo) : '';
   const ativoDocumentoEditado = docs.find(doc => String(doc.id) === String(editandoId))?.ativo;
+  const categoriaDocumentoEditada = docs.find(doc => String(doc.id) === String(editandoId))?.categoria;
   const periodoInvalido = filtros.inicio && filtros.fim && filtros.inicio > filtros.fim;
   const docsFiltrados = docs.filter(doc => {
     const registro = new Date(doc.criado_em);
@@ -263,22 +372,34 @@ export default function Documentacao() {
                   <label htmlFor="documentacao-campo-2">Descrição</label>
                   <textarea id="documentacao-campo-2" className="form-control" placeholder="Ex: Documento técnico de referência com instruções e parâmetros da rede" rows={3} value={form.descricao} onChange={set('descricao')} required />
                 </div>
-                {editandoId ? (
+                <div className="form-row">
+                  {editandoId ? (
+                    <div className="form-group">
+                      <label>Ativo Relacionado</label>
+                      <p className="form-control" aria-readonly="true">{ativoDocumentoEditado?.nome || '— Nenhum —'}</p>
+                    </div>
+                  ) : (
+                    <div className="form-group">
+                      <label htmlFor="documentacao-campo-3">Ativo Relacionado (Opcional)</label>
+                      <select id="documentacao-campo-3" className="form-control" value={form.id_ativo} onChange={set('id_ativo')}>
+                        <option value="">— Nenhum —</option>
+                        {ativosDisponiveis.map(a => (
+                          <option key={a.id} value={a.id}>{a.nome} ({a.tipo})</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div className="form-group">
-                    <label>Ativo Relacionado</label>
-                    <p className="form-control" aria-readonly="true">{ativoDocumentoEditado?.nome || '— Nenhum —'}</p>
-                  </div>
-                ) : (
-                  <div className="form-group">
-                    <label htmlFor="documentacao-campo-3">Ativo Relacionado (Opcional)</label>
-                    <select id="documentacao-campo-3" className="form-control" value={form.id_ativo} onChange={set('id_ativo')}>
-                      <option value="">— Nenhum —</option>
-                      {ativosDisponiveis.map(a => (
-                        <option key={a.id} value={a.id}>{a.nome} ({a.tipo})</option>
-                      ))}
+                    <label htmlFor="documentacao-campo-4">Categoria</label>
+                    <select id="documentacao-campo-4" className="form-control" value={form.id_categoria} onChange={set('id_categoria')} required>
+                      <option value="">— Selecione —</option>
+                      {categoriaDocumentoEditada && !categoriasAtivas.some(c => String(c.id) === String(categoriaDocumentoEditada.id)) && (
+                        <option value={categoriaDocumentoEditada.id}>{categoriaDocumentoEditada.nome} (inativa)</option>
+                      )}
+                      {categoriasAtivas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                     </select>
                   </div>
-                )}
+                </div>
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="documentacao-campo-5">Link Externo (Opcional)</label>
@@ -286,7 +407,7 @@ export default function Documentacao() {
                   </div>
                   <div className="form-group">
                     <label htmlFor="documentacao-campo-6">Arquivo (PDF, DOC, DOCX, JPG ou PNG)</label>
-                    <input ref={arquivoInput} id="documentacao-campo-6" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="form-control" style={{ padding: 7 }} onChange={e => { setArquivo(e.target.files[0] || null); setErro(''); }} required={!editandoId} />
+                    <input ref={arquivoInput} id="documentacao-campo-6" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="form-control" onChange={e => { setArquivo(e.target.files[0] || null); setErro(''); }} required={!editandoId} />
                     <small className="document-help-text">Tamanho máximo do arquivo: 5 MB.</small>
                     {editandoId && <small className="document-help-text">Deixe em branco para manter o arquivo atual.</small>}
                   </div>
@@ -300,6 +421,7 @@ export default function Documentacao() {
           </div>
         )}
         <div className="card-box" hidden={mostrarForm}>
+          {!mostrarForm && sucesso && <div className="alert alert-sucesso" role="status">{sucesso}</div>}
           <div className="page-header">
             <h1>Base de Conhecimento / Documentação</h1>
             <div className="document-list-actions">
@@ -307,6 +429,9 @@ export default function Documentacao() {
                 <button ref={formBotao} className="btn btn-primary" aria-expanded={mostrarForm} aria-controls="documentacao-formulario" onClick={() => mostrarForm ? fecharForm() : novoForm()}>
                   {mostrarForm ? 'Recolher formulário' : '+ Novo Documento'}
                 </button>
+              )}
+              {podeEditar && (
+                <button type="button" className="btn btn-primary" onClick={() => { setSucesso(''); setCategoriaModal('menu'); }}>Categorias</button>
               )}
               <button type="button" className="btn btn-primary" aria-expanded={filtrosAbertos} aria-controls="documentacao-filtros" onClick={() => setFiltrosAbertos(aberto => !aberto)}>
                 Filtro{haFiltros ? ` (${Object.values(filtros).filter(Boolean).length})` : ''}
@@ -414,6 +539,11 @@ export default function Documentacao() {
                 <strong>Ativo vinculado:</strong> {lendoDoc.ativo.nome}
               </p>
             )}
+            {lendoDoc.categoria && (
+              <p style={{ marginBottom: 6 }}>
+                <strong>Categoria:</strong> {lendoDoc.categoria.nome}
+              </p>
+            )}
             {!!lendoDoc.chamados?.length && <div><strong>Chamados que usam este documento:</strong><ul className="document-linked-tickets">{lendoDoc.chamados.map(c => <li key={c.id}>#{c.id} — {c.titulo}</li>)}</ul></div>}
             {lendoDoc.descricao && <p style={{ marginBottom: 10, marginTop: 10 }}>{lendoDoc.descricao}</p>}
             {linkExternoSeguro && (
@@ -436,6 +566,56 @@ export default function Documentacao() {
         )}
 
       </main>
+      {categoriaModal && (
+        <ModalCategoria titulo="Categorias" onClose={fecharCategorias}>
+          <div className="form-actions" style={{ justifyContent: 'center', gap: 16, flexWrap: 'wrap' }}>
+            <button type="button" className="btn btn-primary" autoFocus onClick={abrirCadastroCategoria}>Cadastrar Categoria</button>
+            <button type="button" className="btn btn-primary" onClick={abrirInativacaoCategoria}>Inativar Categoria</button>
+          </div>
+          <div className="form-actions">
+            <button type="button" className="btn btn-secondary" onClick={fecharCategorias}>Fechar</button>
+          </div>
+        </ModalCategoria>
+      )}
+      {categoriaModal === 'cadastro' && (
+        <ModalCategoria titulo="Cadastrar Categoria" onClose={voltarMenuCategorias}>
+          <form onSubmit={cadastrarCategoria}>
+            <div className="form-group" style={{ textAlign: 'left' }}>
+              <label htmlFor="categoria-nome">Nome da Categoria</label>
+              <input id="categoria-nome" className="form-control" placeholder="Ex: Manuais" value={novaCategoria} onChange={e => setNovaCategoria(e.target.value)} maxLength={100} required autoFocus />
+            </div>
+            {erroCategoria && <div className="alert alert-erro" role="alert">{erroCategoria}</div>}
+            <div className="form-actions">
+              <button type="button" className="btn btn-secondary"               disabled={processandoCategoria} onClick={voltarMenuCategorias}>Cancelar</button>
+              <button type="submit" className="btn btn-primary" disabled={processandoCategoria || !novaCategoria.trim()}>{processandoCategoria ? 'Cadastrando…' : 'Cadastrar'}</button>
+            </div>
+          </form>
+        </ModalCategoria>
+      )}
+      {categoriaModal === 'inativar' && (
+        <ModalCategoria titulo="Inativar Categoria" onClose={voltarMenuCategorias}>
+          <div style={{ textAlign: 'left' }}>
+            {carregandoCategorias ? <p role="status">Carregando categorias…</p> : categorias.length === 0 ? (
+              !erroCategoria && <p>Nenhuma categoria cadastrada.</p>
+            ) : (
+              <fieldset style={{ border: 0, padding: 0, margin: 0, maxHeight: 280, overflowY: 'auto' }}>
+                <legend className="sr-only">Categorias cadastradas</legend>
+                {categorias.map(c => (
+                  <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={categoriasSelecionadas.includes(c.id)} onChange={() => alternarCategoria(c.id)} />
+                    {c.nome}
+                  </label>
+                ))}
+              </fieldset>
+            )}
+          </div>
+          {erroCategoria && <div className="alert alert-erro" role="alert">{erroCategoria}</div>}
+          <div className="form-actions">
+            <button type="button" className="btn btn-secondary"             disabled={processandoCategoria} onClick={voltarMenuCategorias}>Cancelar</button>
+            <button type="button" className="btn btn-primary" disabled={processandoCategoria || !categoriasSelecionadas.length} onClick={inativarCategorias}>{processandoCategoria ? 'Inativando…' : 'Inativar'}</button>
+          </div>
+        </ModalCategoria>
+      )}
       <dialog ref={exclusaoDialog} className="document-delete-dialog" aria-labelledby="document-delete-title" aria-describedby="document-delete-description document-delete-warning" onCancel={e => e.preventDefault()}>
         <h2 id="document-delete-title">Excluir Documento</h2>
         <hr className="divider" />

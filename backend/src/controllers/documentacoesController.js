@@ -6,8 +6,9 @@ const { encerrado } = require('../services/slaService');
 
 const selectSemDados = {
   id: true, titulo: true, descricao: true, link_externo: true, arquivo_nome: true, arquivo_mime: true,
-  criado_em: true, id_responsavel: true, id_ativo: true,
+  criado_em: true, id_responsavel: true, id_ativo: true, id_categoria: true,
   responsavel: { select: { id: true, nome: true } }, ativo: { select: { id: true, nome: true } },
+  categoria: { select: { id: true, nome: true, status: true } },
   chamados_vinculados: { include: { chamado: { select: { id: true, titulo: true, status: true, id_solicitante: true } } } },
 };
 function apresentar(doc, usuario) {
@@ -77,6 +78,9 @@ function dadosDocumento(req, novo) {
     if (!novo) throw falha(400, 'O ativo relacionado não pode ser alterado durante a edição.');
     data.id_ativo = req.body.id_ativo ? toId(req.body.id_ativo) : null;
   }
+  if (req.body.id_categoria !== undefined) {
+    data.id_categoria = req.body.id_categoria ? toId(req.body.id_categoria) : null;
+  }
   if (req.body.id_chamado !== undefined || req.body.ids_chamados !== undefined) throw falha(400, 'Vincule documentações pela tela do chamado.');
   if (req.file) {
     const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
@@ -99,6 +103,10 @@ async function salvar(req, res, novo) {
       const vinculosAntigos = anterior?.chamados_vinculados || [];
       if (vinculosAntigos.some(v => encerrado(v.chamado.status))) throw falha(409, 'Este documento está associado a um chamado encerrado. Cadastre uma nova versão para preservar o histórico.');
       if (data.id_ativo && !await tx.aTIVOS.findUnique({ where: { id: data.id_ativo } })) throw falha(400, 'Ativo não encontrado.');
+      if (data.id_categoria && (novo || String(anterior.id_categoria) !== String(data.id_categoria))) {
+        const categoria = await tx.cATEGORIA_DOC.findUnique({ where: { id: data.id_categoria } });
+        if (!categoria || categoria.status !== 'ATIVO') throw falha(400, 'Selecione uma categoria ativa.');
+      }
       const salvo = novo ? await tx.dOCUMENTACOES.create({ data: { ...data, id_responsavel: req.usuario.id } })
         : await tx.dOCUMENTACOES.update({ where: { id }, data });
       for (const vinculo of vinculosAntigos) {

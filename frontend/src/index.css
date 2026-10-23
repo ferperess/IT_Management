@@ -750,6 +750,35 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--cps-vermelho);
     color: #4b5563;
     cursor: not-allowed;
 }
+
+.documentation-form input.form-control,
+.documentation-form select.form-control {
+    height: 42px;
+}
+.documentation-form input.form-control:not([type="file"]),
+.documentation-form select.form-control {
+    padding-top: 0;
+    padding-bottom: 0;
+}
+.documentation-form input.form-control[type="file"] {
+    box-sizing: border-box;
+    height: 42px;
+    padding: 6px 10px 6px 8px;
+    line-height: 28px;
+}
+.documentation-form input.form-control[type="file"]::file-selector-button {
+    box-sizing: border-box;
+    min-height: 0;
+    height: 28px;
+    padding: 0 12px;
+    vertical-align: top;
+}
+.documentation-form input.form-control[type="file"]:disabled::file-selector-button {
+    background: #e5e7eb;
+    border-color: #717986;
+    color: #4b5563;
+    cursor: not-allowed;
+}
 .form-control[type="file"]:disabled::file-selector-button {
     background: #e5e7eb;
     border-color: #717986;
