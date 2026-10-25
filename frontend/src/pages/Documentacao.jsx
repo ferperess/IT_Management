@@ -477,7 +477,7 @@ export default function Documentacao() {
             <tbody>
               {docsFiltrados.map(d => (
                 <tr key={d.id}>
-                  <td data-label="Título">{d.titulo}</td>
+                  <td data-label="Título">{d.titulo}{d.categoria?.nome && <div style={{ marginTop: 4 }}><span className="badge badge-andamento">{d.categoria.nome}</span></div>}</td>
                   <td data-label="Ativo Vinculado">{d.ativo ? d.ativo.nome : <span className="document-empty-value">—</span>}</td>
                   <td data-label="Responsável">{d.responsavel?.nome}</td>
                   <td data-label="Data Registro">{fmtData(d.criado_em)}</td>
