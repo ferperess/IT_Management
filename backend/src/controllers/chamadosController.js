@@ -176,7 +176,10 @@ async function atualizar_chamado(req, res) {
       if (solicitarConfirmacao) data.confirmacao_pendente = true;
       else if (status && status !== chamado.status) data.confirmacao_pendente = false;
       if (status) data.status = status;
+      const mudouPrioridade = prioridade && prioridade !== chamado.prioridade;
       if (prioridade) data.prioridade = prioridade;
+      // Os prazos acompanham a prioridade atual, contados desde a abertura.
+      if (mudouPrioridade) Object.assign(data, prazosIniciais(prioridade, chamado.criado_em));
       if (categoria) data.categoria = categoria;
       if (id_tecnico !== undefined) data.id_tecnico = id_tecnico ? toId(id_tecnico) : null;
       const mudouStatus = status && status !== chamado.status;
@@ -197,7 +200,7 @@ async function atualizar_chamado(req, res) {
         if (status === 'CONCLUIDO') data.concluido_em = agora;
         if (status === 'CANCELADO') data.cancelado_em = agora;
       }
-      if (prioridade && prioridade !== chamado.prioridade) eventos.push('Prioridade alterada. Os prazos de SLA originais foram preservados.');
+      if (mudouPrioridade) eventos.push(`Prioridade alterada de ${chamado.prioridade} para ${prioridade}. Prazos de SLA recalculados a partir da abertura do chamado.`);
       if (ids_documentacoes !== undefined) {
         const ids = idsRecebidos(ids_documentacoes);
         const documentos = await tx.dOCUMENTACOES.count({ where: { id: { in: ids } } });

@@ -57,9 +57,16 @@ test.each(['CONCLUIDO', 'CANCELADO'])('bloqueia toda edição após %s', async s
   const r = await update({ comentario: 'Alteração', ids_documentacoes: [] });
   expect(r.status).toHaveBeenCalledWith(409); expect(prisma.cHAMADOS.update).not.toHaveBeenCalled(); expect(prisma.cHAMADOS_DOCUMENTACOES.deleteMany).not.toHaveBeenCalled();
 });
-test('prioridade preserva prazos existentes', async () => {
-  const prazo = new Date('2026-09-25T12:00:00Z'); row.prazo_resolucao_em = prazo;
-  await update({ prioridade: 'CRITICA' }); expect(row.prazo_resolucao_em).toBe(prazo);
+test('mudança de prioridade recalcula prazos a partir da abertura', async () => {
+  row.criado_em = new Date('2026-09-25T08:00:00Z'); row.prioridade = 'MEDIA';
+  row.prazo_resolucao_em = new Date('2026-09-26T08:00:00Z');
+  await update({ prioridade: 'CRITICA' });
+  expect(row.prazo_resolucao_em).toEqual(new Date('2026-09-25T12:00:00Z'));
+  expect(row.prazo_atendimento_em).toEqual(new Date('2026-09-25T08:15:00Z'));
+});
+test('mesma prioridade mantém prazos existentes', async () => {
+  const prazo = new Date('2026-09-25T12:00:00Z'); row.prioridade = 'ALTA'; row.prazo_resolucao_em = prazo;
+  await update({ prioridade: 'ALTA' }); expect(row.prazo_resolucao_em).toBe(prazo);
 });
 test('atualiza vários vínculos e permite limpar todos', async () => {
   prisma.dOCUMENTACOES.count.mockResolvedValueOnce(2).mockResolvedValueOnce(0);

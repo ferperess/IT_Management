@@ -1,6 +1,6 @@
 // Prazos em HORAS CORRIDAS. null = SLA não definido para novos chamados.
 // Configure após aprovação da instituição; não altera os prazos já gravados.
-// A mudança de prioridade também preserva os prazos originais.
+// A mudança de prioridade recalcula os prazos a partir da abertura do chamado.
 module.exports = {
   BAIXA: { atendimento: 24, resolucao: 120 },
   MEDIA: { atendimento: 8, resolucao: 24 },

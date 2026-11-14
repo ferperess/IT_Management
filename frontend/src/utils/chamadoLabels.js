@@ -5,6 +5,7 @@ const eventosHistorico = [
   /^Status alterado para (ABERTO|EM_ANDAMENTO|AGUARDANDO_USUARIO|CONCLUIDO|CANCELADO|Aberto|Em andamento|Aguardando usuário|Concluído|Cancelado)\.$/,
   /^Motivo da espera: /,
   /^Prioridade alterada\. Os prazos de SLA originais foram preservados\.$/,
+  /^Prioridade alterada de \w+ para \w+\. Prazos de SLA recalculados a partir da abertura do chamado\.$/,
   /^Documentações relacionadas atualizadas\.$/,
   /^Dados do chamado atualizados\.$/,
   /^Encerramento confirmado pelo solicitante\.$/,
