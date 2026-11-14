@@ -46,7 +46,7 @@ PORT=3001
 FRONTEND_URL=http://localhost:5173
 ```
 
-`DATABASE_URL`, `JWT_SECRET`, `OPENROUTER_API_KEY` e `OPENROUTER_MODEL` são necessários para a configuração completa. O modelo alternativo é opcional. Sem chave/modelo do OpenRouter, a criação de chamados não consegue concluir a classificação automática.
+`DATABASE_URL`, `JWT_SECRET`, `OPENROUTER_API_KEY` e `OPENROUTER_MODEL` são necessários para a configuração completa. O modelo alternativo é opcional. Sem chave/modelo do OpenRouter, ou se os modelos não retornarem uma classificação válida, o chamado ainda é criado com prioridade Média e categoria Outro provisórias, e um aviso de revisão manual é exibido e registrado no histórico.
 Na classificação, o título e a descrição do chamado são enviados ao OpenRouter.
 
 ## Executar
