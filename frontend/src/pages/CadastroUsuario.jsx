@@ -47,7 +47,7 @@ export default function CadastroUsuario() {
       } else {
         await api.post('/usuarios', payload);
         setSucesso('Usuário cadastrado com sucesso!');
-        setForm({ nome: '', email: '', username: '', senha: '', perfil: 'USER', status: 'ATIVO' });
+        navigate('/usuarios');
       }
     } catch (err) {
       setErro(err.response?.data?.erro || 'Erro ao salvar usuário.');
